@@ -1,0 +1,211 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+    Property Tree Widget:
+      Expanded:
+        - /Global Options1
+        - /Grid1
+        - /TF1
+        - /PointCloud21
+        - /MarkerArray1
+        - /MarkerArray2
+        - /MarkerArray3
+        - /MarkerArray4
+    Splitter Ratio: 0.5
+  - Class: rviz_common/Views
+    Name: Views
+    Property Tree Widget:
+      Expanded:
+        - /Current View1
+    Splitter Ratio: 0.5
+Preferences:
+  PromptSaveOnExit: true
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Alpha: 0.5
+      Cell Size: 1
+      Class: rviz_default_plugins/Grid
+      Color: 160; 160; 164
+      Enabled: true
+      Line Style:
+        Line Width: 1
+        Value: Lines
+      Name: Grid
+      Normal Cell Count: 0
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Plane: XY
+      Plane Cell Count: 10
+      Reference Frame: <Fixed Frame>
+      Style: Lines
+    - Class: rviz_default_plugins/TF
+      Enabled: true
+      Frame Timeout: 15
+      Frames:
+        All Enabled: true
+      Marker Scale: 1
+      Name: TF
+      Show Arrows: true
+      Show Axes: true
+      Show Names: true
+      Tree:
+        map:
+          map:
+            children: {}
+    - Alpha: 1
+      Autocompute Intensity Bounds: true
+      Autocompute Value Bounds:
+        Max Value: 10
+        Min Value: -10
+        Value: true
+      Axis: Z
+      Channel Name: intensity
+      Class: rviz_default_plugins/PointCloud2
+      Color: 255; 255; 255
+      Color Transformer: XYZRGB
+      Decay Time: 0
+      Enabled: false
+      Factor: 1
+      Invert Rainbow: false
+      Max Color: 255; 255; 255
+      Min Color: 0; 0; 0
+      Name: Raw PointCloud
+      Position Transformer: XYZ
+      Queue Size: 10
+      Selectable: true
+      Size (Pixels): 3
+      Size (m): 0.05
+      Style: Points
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /lidar_points
+      Use Fixed Frame: true
+      Use rainbow: true
+    - Alpha: 0.8
+      Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: Elevation Map
+      Namespaces:
+        elevation:
+          Enabled: true
+      Queue Size: 10
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /fovea/elevation_map
+    - Alpha: 0.6
+      Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: Occupancy Grid
+      Namespaces:
+        occupancy:
+          Enabled: true
+      Queue Size: 10
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /fovea/occupancy_map
+    - Alpha: 1.0
+      Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: Foveation ROIs
+      Namespaces:
+        foveation_roi:
+          Enabled: true
+      Queue Size: 10
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /fovea/foveation_rois
+    - Alpha: 1.0
+      Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: Risk Heatmap
+      Namespaces:
+        risk:
+          Enabled: true
+      Queue Size: 10
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /fovea/risk_map
+    - Alpha: 1.0
+      Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: Fallback Map
+      Namespaces:
+        fallback:
+          Enabled: true
+      Queue Size: 10
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /fovea/fallback_map
+  Enabled: true
+  Global Options:
+    Background Color: 48; 48; 48
+    Default Light: true
+    Fixed Frame: map
+    Frame Rate: 30
+  Name: Root
+  Tools:
+    - Class: rviz_default_plugins/MoveCamera
+      Enabled: true
+    - Class: rviz_default_plugins/Select
+      Enabled: true
+    - Class: rviz_default_plugins/Measure
+      Enabled: true
+    - Class: rviz_default_plugins/InitialPose
+      Enabled: true
+    - Class: rviz_default_plugins/Interact
+      Enabled: true
+  Transformation:
+    Current:
+      Class: rviz_default_plugins/TF
+  Value: map
+  Views:
+    - Class: rviz_default_plugins/Orbit
+      Distance: 30
+      Enable Stereo Rendering:
+        Stereo Eye Separation: 0.05
+        Stereo Focal Distance: 1
+        Swap Stereo Eyes: false
+        Value: false
+      Focal Point:
+        X: 0
+        Y: 0
+        Z: 0
+      Name: Orbit
+      Near Clip Distance: 0.01
+      Pitch: 0.7853981633974483
+      Target Frame: <Fixed Frame>
+      Yaw: 3.141592653589793
+Window Geometry:
+  Displays:
+    collapsed: false
+  Height: 1080
+  Width: 1920
+  X: 0
+  Y: 0

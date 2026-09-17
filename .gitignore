@@ -1,0 +1,73 @@
+# ==============================================================================
+# 2.5D-Lidar Git Ignore Specification
+# Excludes assistant skills, temporary artifacts, heavy node_modules & external repos
+# ==============================================================================
+
+# Assistant / Claude Skills (Unnecessary for production repo)
+claudedesignskills/
+.gemini/
+
+# Node.js / React Web UI Build Artifacts
+node_modules/
+web-ui/node_modules/
+web-ui/dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python Compilation & Virtual Environments
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Testing & Coverage
+.coverage
+.coverage.*
+.pytest_cache/
+htmlcov/
+
+# Logs & Diagnostics
+*.log
+fovea_lidar/live_server.log
+
+# Large Media Files (>40MB - fovea_demo.gif at 4MB is tracked for README)
+fovea_lidar/fovea_hackathon_demo.gif
+
+# External Cloned Repositories (To prevent submodule nesting conflicts)
+FastDEM/
+Offroad-Nav/
+lidar_viewer/
+
+# IDE & Operating System Files
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+*~
+.DS_Store
+Thumbs.db
+Desktop.ini

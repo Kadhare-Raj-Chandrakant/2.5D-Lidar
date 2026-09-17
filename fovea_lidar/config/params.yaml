@@ -1,0 +1,55 @@
+# Foveated LiDAR Perception Parameters
+# All distances in meters, angles in radians
+
+# LiDAR Preprocessing
+max_range: 50.0
+min_range: 0.5
+voxel_size: 0.1
+range_filter_enabled: true
+nan_filter_enabled: true
+
+# 2.5D Grid Map
+grid_resolution: 0.2          # meters per cell
+grid_size_x: 200              # cells (40m x 40m)
+grid_size_y: 200
+grid_origin_x: -20.0          # world frame origin (meters)
+grid_origin_y: -20.0
+occupancy_threshold: 0.5      # min points per cell to mark occupied
+elevation_aggregation: "mean" # mean, max, min
+max_height_diff: 2.0          # max height variation within cell
+
+# Risk Estimation Weights
+risk_weight_occupancy: 1.0
+risk_weight_elevation_var: 0.5
+risk_weight_proximity: 0.3
+risk_weight_roughness: 0.2
+proximity_falloff: 10.0       # distance scale for proximity risk
+
+# Uncertainty Estimation
+uncertainty_base: 1.0
+uncertainty_decay: 0.1        # per observation
+
+# Foveation
+foveation_alpha: 0.7          # risk weight
+foveation_beta: 0.3           # uncertainty weight
+foveation_top_k: 10           # number of ROI boxes
+roi_min_size: 3               # min cells per ROI
+roi_max_size: 15              # max cells per ROI
+roi_expansion: 1              # cells to expand around peak
+
+# Hysteresis
+hysteresis_frames: 5          # frames to keep ROI after score drop
+hysteresis_threshold: 0.3     # score threshold for ROI creation
+
+# Fallback
+fallback_latency_ms: 100      # max latency before fallback
+fallback_coarse_resolution: 1.0  # fallback map resolution
+
+# Compute Budget
+target_frame_time_ms: 100     # 10 Hz target
+max_points_per_frame: 50000   # processing budget
+
+# Visualization
+viz_elevation_min: -2.0
+viz_elevation_max: 3.0
+viz_update_rate_hz: 10

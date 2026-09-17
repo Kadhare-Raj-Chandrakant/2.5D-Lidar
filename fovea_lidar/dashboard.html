@@ -1,0 +1,41 @@
+<!DOCTYPE html><html><head><title>Foveated LiDAR - LIVE</title>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
+<style>
+body{font-family:'Segoe UI',sans-serif;margin:0;background:#1a1a2e;color:#eee}
+.header{background:#16213e;padding:0.8rem 1rem;border-bottom:2px solid #e94560;display:flex;justify-content:space-between;align-items:center}
+.live-dot{display:inline-block;width:12px;height:12px;border-radius:50%;background:#00d9a5;animation:blink 1s infinite}
+@keyframes blink{50%{opacity:0.3}}
+.container{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;padding:1rem}
+.card{background:#16213e;border-radius:8px;padding:1rem;border:1px solid #0f3460}
+.card h3{margin:0 0 0.8rem;color:#e94560}
+.metric{font-size:1.8rem;font-weight:bold;color:#00d9a5}
+.ok{color:#00d9a5}.err{color:#e94560}
+img.live{width:100%;border-radius:4px}
+.controls{display:flex;gap:1rem;align-items:center;flex-wrap:wrap}
+button{background:#e94560;color:#fff;border:none;border-radius:4px;padding:0.4rem 1rem;cursor:pointer}
+input[type=range]{width:140px}
+#perfPlot{width:100%;height:300px}
+table{width:100%;font-size:0.85rem;border-collapse:collapse}
+td,th{padding:0.25rem;border-bottom:1px solid #0f3460;text-align:left}
+</style></head><body>
+<div class="header"><h1><span class="live-dot"></span> Foveated LiDAR Perception - LIVE</h1>
+<div><span id="clock">--</span> | frame <span id="frame">--</span></div></div>
+<div class="container">
+<div class="card"><h3>Controls</h3><div class="controls">
+<button id="pauseBtn" onclick="togglePause()">Pause</button>
+<label>Speed <input type="range" id="speed" min="0.5" max="8" step="0.5" value="3" oninput="sendControl()"></label>
+<label>Alpha <input type="range" id="alpha" min="0" max="1" step="0.05" value="0.7" oninput="sendControl()"></label>
+<label>Beta <input type="range" id="beta" min="0" max="1" step="0.05" value="0.3" oninput="sendControl()"></label>
+</div><div style="margin-top:0.8rem">Status: <b id="status" class="ok">RUNNING</b></div></div>
+<div class="card"><h3>Live Metrics</h3>
+<div>Frame: <span id="frameTime" class="metric">--</span> ms (<span id="fps">--</span> FPS)</div>
+<div>ROIs: <span id="roiCount" class="metric">--</span> | Max risk: <span id="maxRisk" class="metric">--</span></div>
+<div>Budget: <span id="budget" class="metric">--</span>% | Objects: <span id="objCount" class="metric">--</span></div></div>
+<div class="card"><h3>Dynamic Objects</h3><table><tr><th>ID</th><th>Pos</th><th>Vel</th><th>Halo</th></tr><tbody id="objects"></tbody></table></div>
+<div class="card"><h3>Risk Map + Foveation ROIs (live)</h3><img id="riskImg" class="live"></div>
+<div class="card"><h3>Dynamic Objects + Safety Halos (live)</h3><img id="dynImg" class="live"></div>
+<div class="card"><h3>Performance (live)</h3><div id="perfPlot"></div></div>
+</div>
+<script src="/app.js"></script>
+</body></html>

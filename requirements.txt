@@ -1,0 +1,13 @@
+# Core dependencies
+numpy>=1.24.0
+opencv-python>=4.8.0
+pygame>=2.5.0
+pyyaml>=6.0
+matplotlib>=3.7.0
+websockets>=11.0.0
+scipy>=1.10.0
+
+# Optional: for advanced planning & deep learning
+# torch>=2.0.0
+# shapely>=2.0.0
+# networkx>=3.1

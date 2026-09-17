@@ -1,0 +1,125 @@
+simulation:
+  mode: "pygame"  # "carla" or "pygame"
+  fps: 30
+  dt: 0.033
+  duration: 300.0
+  seed: 42
+
+vehicle:
+  model: "vehicle.tesla.model3"
+  max_speed: 30.0  # m/s
+  max_steer: 0.7   # rad
+  wheelbase: 2.875 # meters
+  mass: 1500.0     # kg
+
+world:
+  town: "Town03"
+  weather: "ClearNoon"
+  traffic_density: 30
+  pedestrian_density: 10
+
+sensors:
+  camera:
+    - name: "front"
+      transform:
+        x: 1.5
+        y: 0.0
+        z: 1.6
+        pitch: -10
+        yaw: 0
+        roll: 0
+      fov: 90
+      width: 800
+      height: 600
+    - name: "rear"
+      transform:
+        x: -1.5
+        y: 0.0
+        z: 1.6
+        pitch: 10
+        yaw: 180
+        roll: 0
+      fov: 90
+      width: 800
+      height: 600
+  lidar:
+    - name: "top"
+      transform:
+        x: 0.0
+        y: 0.0
+        z: 2.0
+      channels: 32
+      range: 85.0
+      points_per_second: 500000
+      rotation_frequency: 20
+  radar:
+    - name: "front"
+      transform:
+        x: 2.0
+        y: 0.0
+        z: 1.0
+        pitch: 0
+        yaw: 0
+      fov: 30
+      range: 100.0
+
+perception:
+  camera:
+    detection_model: "yolo"  # placeholder
+    confidence_threshold: 0.5
+    nms_threshold: 0.4
+    classes: ["car", "truck", "bus", "motorcycle", "bicycle", "person"]
+  lidar:
+    clustering_eps: 0.5
+    min_points: 10
+    max_points: 1000
+  lane_detection:
+    method: "polynomial"
+    degree: 3
+    window_size: 20
+
+planning:
+  global:
+    method: "astar"
+    resolution: 2.0
+  local:
+    method: "frenet_polynomial"
+    horizon: 50.0
+    dt: 0.5
+    num_paths: 7
+    weights:
+      jerk: 1.0
+      curvature: 10.0
+      deviation: 50.0
+      collision: 1000.0
+  behavior:
+    lane_change_time: 3.0
+    min_gap: 3.0
+    follow_distance: 2.0
+    emergency_brake_dist: 5.0
+
+control:
+  lateral:
+    method: "pure_pursuit"
+    lookahead_distance: 5.0
+    lookahead_gain: 0.3
+  longitudinal:
+    method: "pid"
+    kp: 1.0
+    ki: 0.1
+    kd: 0.05
+    max_accel: 3.0
+    max_decel: 5.0
+
+visualization:
+  window_width: 1600
+  window_height: 900
+  bird_eye_range: 80.0
+  show_sensor_views: true
+  show_debug: true
+  colors:
+    vehicle: [0, 100, 255]
+    trajectory: [0, 255, 0]
+    objects: [255, 0, 0]
+    lanes: [255, 255, 0]
+    lidar: [255, 255, 255]
