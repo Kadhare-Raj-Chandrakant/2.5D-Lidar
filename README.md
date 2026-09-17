@@ -13,6 +13,14 @@
 
 <br/>
 
+### 🌟 Real-Time 3D WebGL Digital Twin & Pedestrian Crossing Simulation
+![3D Environment UI with Pedestrian Crossing](assets/environment_ui_pedestrians.jpg)
+
+*Real-time 3D simulation with dynamic pedestrian group crossing at the high-visibility zebra crossing, concentric 2.5D elevation grid, and glassmorphic cockpit HUD.*
+
+<br/>
+
+### 📡 Adaptive Variable-Resolution Foveated LiDAR Pipeline
 ![2.5D Foveated LiDAR Perception Demo](fovea_lidar/fovea_demo.gif)
 
 *Live demonstration of the Adaptive Variable-Resolution 2.5D Foveated LiDAR Pipeline running in real-time.*
@@ -211,18 +219,35 @@ $$\text{Compute Speedup Factor} = \frac{16{,}000{,}000}{809{,}600} \approx \math
 
 <div align="center">
 
-| Chase Cam (Driving View) | 2.5D Foveated Grid View |
+### 🔬 Concentric Variable-Resolution Elevation Grid & Actor Tracking
+![Isometric 3D Foveated Grid Inspection](assets/foveated_grid_3d_inspection.jpg)
+
+*Isometric CAD / WebGL inspection view demonstrating concentric resolution rings: **5cm Inner Fovea** (green), **20cm Mid Corridor** (amber), and **50cm Far Horizon** (blue) with 3D bounding box tracking for pedestrians and static obstacles.*
+
+<br/>
+
+### 🏎️ Interactive Multi-Camera Perspectives
+
+| Chase Cam (Third-Person) | 2.5D Grid Mode (Elevation Mesh) |
 |:---:|:---:|
-| Follows ego-vehicle smoothly with dynamic spring physics | Color-coded elevation cells displaying roughness & curbs |
-| **Orbit 3D Inspection** | **LiDAR Top-Down View** |
-| Full 360° mouse navigation & free perspective | Orthographic view with lane lines & planned paths |
+| Smooth camera tracking with dynamic spring damper physics | Direct wireframe inspection of elevation height layers |
+| **Orbit 3D (Free Camera)** | **LiDAR Top-Down (Bird's-Eye View)** |
+| 360° mouse navigation, pan, tilt, and zoom inspection | Orthographic projection of occupancy, lanes, and planned path |
 
 </div>
 
-### Key Visual Assets Included:
-- `fovea_lidar/fovea_demo.gif`: Complete perception & foveation pipeline animation.
-- `fovea_lidar/fovea_summary.png`: Multi-panel benchmark and grid comparison.
-- `fovea_lidar/fovea_frame_000.png` through `099.png`: Full frame-by-frame analysis sequence.
+<br/>
+
+### 🚶 Multi-Pedestrian Group Yielding & Collision Avoidance
+```
+[Ego Vehicle Approaching] ──▶ [Zebra Crossing Detected] ──▶ [Pedestrian Group Detected]
+                                                                        │
+                                                                        ▼
+[Autonomous Acceleration] ◀── [Crosswalk Cleared] ◀── [Full Stop & Safety Yield]
+```
+- **Zebra Crossings**: European standard 4m wide zebra crossing with white retroreflective bars and solid white stop bar markings in [`web-ui/src/components/Environment.jsx`](web-ui/src/components/Environment.jsx).
+- **Pedestrian Group Kinematics**: Multi-pedestrian group crossing synchronously with dynamic leg and arm swing kinematics in [`web-ui/src/App.jsx`](web-ui/src/App.jsx).
+- **Dynamic Safety Yielding**: The vehicle planner continuously computes distance-to-crossing and time-to-collision (TTC), executing smooth decelerative braking and holding until the crosswalk is fully cleared before resuming cruise velocity.
 
 ---
 

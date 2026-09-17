@@ -53,7 +53,9 @@ echo.
 :: 4. Verify branch name
 "%GIT_CMD%" branch -M main
 
-:: 5. Stage files respecting .gitignore (excluding claudedesignskills, node_modules, etc.)
+:: 5. Synchronize presentation assets & stage files
+if exist "copy_assets.bat" call copy_assets.bat
+echo.
 echo [INFO] Staging files (respecting .gitignore)...
 "%GIT_CMD%" add .
 
