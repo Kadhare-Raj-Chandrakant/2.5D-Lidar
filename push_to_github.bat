@@ -66,7 +66,7 @@ echo.
 
 :: 6. Commit changes
 echo [INFO] Creating commit...
-"%GIT_CMD%" commit -m "feat: complete 2.5D foveated lidar perception pipeline, deep learning semantic segmentation and real-time 3D web simulation"
+"%GIT_CMD%" commit -m "feat: complete 2.5D foveated lidar perception pipeline, PointNet semantic segmentation, and real-time 3D web simulation"
 if %errorlevel% neq 0 (
     echo [INFO] No new changes to commit or commit already up to date.
 )
