@@ -52,8 +52,19 @@ class GlobalPlanner:
                     dist = float(np.hypot(self.resolution, 3.5))
                     self.graph[cur_idx].append((right_next, dist))
 
+        self.cached_trajectory: Optional[Trajectory] = None
+        self.cached_goal: Optional[Tuple[float, float]] = None
+
     def plan(self, start: VehicleState, goal: Tuple[float, float]) -> Trajectory:
-        """Plan global path from start to goal."""
+        """Plan global path from start to goal with route caching."""
+        if self.cached_trajectory is not None and self.cached_goal == goal:
+            # Filter waypoints forward from current ego longitudinal position
+            forward_wps = [wp for wp in self.cached_trajectory.waypoints if wp.s >= start.x - 5.0]
+            if len(forward_wps) >= 2:
+                traj = Trajectory(valid=True)
+                traj.waypoints = forward_wps
+                return traj
+
         start_idx = self._nearest_waypoint(start.x, start.y)
         goal_idx = self._nearest_waypoint(goal[0], goal[1])
 
@@ -67,9 +78,19 @@ class GlobalPlanner:
             ))
 
         trajectory.valid = len(trajectory.waypoints) > 0
+        self.cached_trajectory = trajectory
+        self.cached_goal = goal
         return trajectory
 
     def _nearest_waypoint(self, x: float, y: float) -> int:
+        lane_centers = [-5.25, -1.75, 1.75, 5.25]
+        closest_lane = min(range(len(lane_centers)), key=lambda l: abs(lane_centers[l] - y))
+        s_steps_len = len(np.arange(0, 1500, self.resolution))
+        s_idx = int(np.clip(round(x / self.resolution), 0, s_steps_len - 1))
+        idx = closest_lane * s_steps_len + s_idx
+        if 0 <= idx < len(self.waypoints):
+            return idx
+
         min_dist = float('inf')
         nearest = 0
         for i, wp in enumerate(self.waypoints):

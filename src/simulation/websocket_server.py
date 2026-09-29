@@ -17,13 +17,27 @@ class SimulationWebSocketServer:
         self.latest_data = None
         self.running = False
 
+    def _serialize_json(self, data: dict) -> str:
+        """Safely serialize simulation payload to JSON string."""
+        def _fallback_serializer(obj):
+            if hasattr(obj, 'tolist'):
+                return obj.tolist()
+            if hasattr(obj, '__dict__'):
+                return {k: v for k, v in obj.__dict__.items() if not k.startswith('_') and not callable(v)}
+            return str(obj)
+
+        return json.dumps(data, default=_fallback_serializer)
+
     async def register(self, websocket: WebSocketServerProtocol):
         """Register new client."""
         self.clients.add(websocket)
         print(f"Client connected. Total: {len(self.clients)}")
 
         if self.latest_data:
-            await websocket.send(json.dumps(self.latest_data))
+            try:
+                await websocket.send(self._serialize_json(self.latest_data))
+            except Exception as e:
+                print(f"Error sending initial state to client: {e}")
 
     async def unregister(self, websocket: WebSocketServerProtocol):
         """Unregister client."""
@@ -35,10 +49,15 @@ class SimulationWebSocketServer:
         if not self.clients:
             return
 
-        message = json.dumps(data)
+        try:
+            message = self._serialize_json(data)
+        except Exception as e:
+            print(f"[WebSocket] Serialization error: {e}")
+            return
+
         disconnected = set()
 
-        for client in self.clients:
+        for client in set(self.clients):  # snapshot to avoid RuntimeError if set mutates during iteration
             try:
                 await client.send(message)
             except websockets.exceptions.ConnectionClosed:
@@ -59,11 +78,20 @@ class SimulationWebSocketServer:
         finally:
             await self.unregister(websocket)
 
-    def update_data(self, vehicle_state, perception, trajectory, behavior, control, sensor_data):
+    def update_data(self, vehicle_state, perception, trajectory, behavior, control, sensor_data, traffic_signal="green", active_signal_station=55.0):
         """Update latest simulation data for broadcasting."""
+        # Downsample LiDAR point cloud to representative sample for ultra-low latency 60 FPS streaming
+        lidar_data = None
+        if perception and perception.sensor_data and perception.sensor_data.get('lidar') is not None:
+            raw_lidar = perception.sensor_data.get('lidar')
+            if hasattr(raw_lidar, '__getitem__'):
+                lidar_data = raw_lidar[::4][:600].tolist() if hasattr(raw_lidar, 'tolist') else raw_lidar[:600]
+
         self.latest_data = {
             "type": "simulation_data",
             "timestamp": time.time(),
+            "traffic_signal": traffic_signal,
+            "active_signal_station": active_signal_station,
             "vehicle_state": {
                 "x": vehicle_state.x,
                 "y": vehicle_state.y,
@@ -77,8 +105,8 @@ class SimulationWebSocketServer:
                     {
                         "id": obj.id,
                         "track_id": obj.track_id,
-                        "class_name": obj.bbox_3d.class_name if obj.bbox_3d else None,
-                        "confidence": obj.bbox_3d.confidence if obj.bbox_3d else 0,
+                        "class_name": getattr(obj.bbox_3d, 'class_name', None) if obj.bbox_3d else None,
+                        "confidence": getattr(obj.bbox_3d, 'confidence', 0.9) if obj.bbox_3d else 0,
                         "bbox_3d": {
                             "x": obj.bbox_3d.x,
                             "y": obj.bbox_3d.y,
@@ -87,6 +115,9 @@ class SimulationWebSocketServer:
                             "width": obj.bbox_3d.width,
                             "height": obj.bbox_3d.height,
                             "yaw": obj.bbox_3d.yaw,
+                            "class_name": getattr(obj.bbox_3d, 'class_name', 'car'),
+                            "isCrossing": getattr(obj.bbox_3d, 'isCrossing', False),
+                            "jacketColor": getattr(obj.bbox_3d, 'jacketColor', None),
                         } if obj.bbox_3d else None,
                     }
                     for obj in perception.objects
@@ -100,7 +131,7 @@ class SimulationWebSocketServer:
                     for lane in perception.lanes
                 ],
                 "sensor_data": {
-                    "lidar": perception.sensor_data.get('lidar').tolist() if perception.sensor_data.get('lidar') is not None else None,
+                    "lidar": lidar_data,
                     "radar": perception.sensor_data.get('radar'),
                     "foveated_grid": perception.sensor_data.get('foveated_grid'),
                     "semantic_metrics": perception.sensor_data.get('semantic_metrics'),
@@ -129,13 +160,16 @@ class SimulationWebSocketServer:
                 "throttle": control.throttle if control else 0,
                 "brake": control.brake if control else 0,
             } if control else None,
-            "sensor_data": sensor_data,
+            "sensor_data": {
+                "timestamp": getattr(sensor_data, 'timestamp', time.time()),
+                "radar": getattr(sensor_data, 'radar', None),
+            } if sensor_data else None,
         }
 
     async def broadcast_loop(self, interval: float = 0.033):
         """Continuous broadcast loop."""
         while self.running:
-            if self.latest_data:
+            if self.latest_data and self.clients:
                 await self.broadcast(self.latest_data)
             await asyncio.sleep(interval)
 

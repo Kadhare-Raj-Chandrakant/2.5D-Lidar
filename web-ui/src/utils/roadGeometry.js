@@ -26,7 +26,7 @@ function quinticSmooth(t) {
  * - 820m to 885m: SHARP RIGHT TURN (heading returns to 0°)
  * - 885m to 1200m: Straight Boulevard to complete the loop
  */
-const SHARP_ANGLE = 62 * (Math.PI / 180) // 62 degrees (~1.082 rad)
+const SHARP_ANGLE = 7 * (Math.PI / 180) // Gentle 7-degree realistic highway sweep (natural real-world driving)
 
 export function getRoadYaw(s) {
   const sMod = ((s % CYCLE_LENGTH) + CYCLE_LENGTH) % CYCLE_LENGTH
@@ -229,7 +229,10 @@ export function createCurvedRibbonGeometry(startS, endS, step, leftOffset, right
       const b = vIdx + 1
       const c = vIdx + 2
       const d = vIdx + 3
-      indices.push(a, b, c, c, b, d)
+      // Counter-clockwise triangles facing UPWARDS (+Y):
+      // Triangle 1: a -> c -> b
+      // Triangle 2: b -> c -> d
+      indices.push(a, c, b, b, c, d)
     }
 
     vIdx += 2
@@ -276,19 +279,19 @@ export function createAlignedDashesGeometry(startS, endS, laneOffsets, dashLengt
 
       // 4 exact corners of the rectangular dash (zero slant):
       positions[vIdx * 3] = cx - halfL * tx - halfW * nx
-      positions[vIdx * 3 + 1] = 0.016
+      positions[vIdx * 3 + 1] = 0.022
       positions[vIdx * 3 + 2] = cz - halfL * tz - halfW * nz
 
       positions[(vIdx + 1) * 3] = cx - halfL * tx + halfW * nx
-      positions[(vIdx + 1) * 3 + 1] = 0.016
+      positions[(vIdx + 1) * 3 + 1] = 0.022
       positions[(vIdx + 1) * 3 + 2] = cz - halfL * tz + halfW * nz
 
       positions[(vIdx + 2) * 3] = cx + halfL * tx - halfW * nx
-      positions[(vIdx + 2) * 3 + 1] = 0.016
+      positions[(vIdx + 2) * 3 + 1] = 0.022
       positions[(vIdx + 2) * 3 + 2] = cz + halfL * tz - halfW * nz
 
       positions[(vIdx + 3) * 3] = cx + halfL * tx + halfW * nx
-      positions[(vIdx + 3) * 3 + 1] = 0.016
+      positions[(vIdx + 3) * 3 + 1] = 0.022
       positions[(vIdx + 3) * 3 + 2] = cz + halfL * tz + halfW * nz
 
       for (let k = 0; k < 4; k++) {
@@ -297,7 +300,10 @@ export function createAlignedDashesGeometry(startS, endS, laneOffsets, dashLengt
         normals[(vIdx + k) * 3 + 2] = 0
       }
 
-      indices.push(vIdx, vIdx + 1, vIdx + 2, vIdx + 2, vIdx + 1, vIdx + 3)
+      // Counter-clockwise triangles facing UPWARDS (+Y):
+      // Triangle 1: v0 -> v2 -> v1
+      // Triangle 2: v1 -> v2 -> v3
+      indices.push(vIdx, vIdx + 2, vIdx + 1, vIdx + 1, vIdx + 2, vIdx + 3)
       vIdx += 4
     }
   })

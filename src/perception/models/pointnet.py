@@ -9,18 +9,29 @@ global feature aggregation via symmetric max-pooling, and multi-scale feature co
 """
 
 import os
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Any, Union
+import numpy as np
 
 try:
-    import torch
-    import torch.nn as nn
-    import torch.nn.functional as F
+    import torch  # type: ignore
+    import torch.nn as nn  # type: ignore
+    import torch.nn.functional as F  # type: ignore
     HAVE_TORCH = True
-except ImportError:
-    torch = None
-    nn = object
-    F = None
+except (ImportError, ModuleNotFoundError):
     HAVE_TORCH = False
+
+    # Safe fallback proxies to eliminate IDE unresolved import and attribute red squiggles
+    class _FallbackProxy:
+        """Fallback mock allowing arbitrary attribute access without IDE type errors."""
+        def __getattr__(self, name: str) -> Any:
+            return _FallbackProxy()
+        def __call__(self, *args: Any, **kwargs: Any) -> Any:
+            return _FallbackProxy()
+
+    torch: Any = _FallbackProxy()
+    nn: Any = _FallbackProxy()
+    F: Any = _FallbackProxy()
+    nn.Module = object  # type: ignore
 
 
 if HAVE_TORCH:
@@ -61,7 +72,7 @@ if HAVE_TORCH:
 
             self.dropout = nn.Dropout(p=0.3)
 
-        def forward(self, x: torch.Tensor) -> torch.Tensor:
+        def forward(self, x: Any) -> Any:
             """Forward pass.
             
             Args:
@@ -97,34 +108,58 @@ if HAVE_TORCH:
 
             return logits
 
-        def predict_numpy(self, points: "np.ndarray", device: str = "cpu") -> Tuple["np.ndarray", "np.ndarray"]:
+        def predict_numpy(self, points: np.ndarray, device: str = "cpu") -> Tuple[np.ndarray, np.ndarray]:
             """Convenience inference method for NumPy input arrays (N, C)."""
-            import numpy as np
-
             if points.shape[0] == 0:
                 return np.empty(0, dtype=np.int32), np.empty(0, dtype=np.float32)
 
             self.eval()
             with torch.no_grad():
+                original_n = points.shape[0]
+                # Adaptive subsampling for CPU real-time inference (PointNet canonical batch size: 1024 pts)
+                if original_n > 1024:
+                    sample_idx = np.linspace(0, original_n - 1, 1024, dtype=int)
+                    proc_points = points[sample_idx]
+                else:
+                    proc_points = points
+
                 # Pad to in_channels if only (N, 3) provided
-                if points.shape[1] < self.in_channels:
-                    pad = np.ones((points.shape[0], self.in_channels - points.shape[1]), dtype=np.float32) * 0.5
-                    points = np.hstack([points, pad])
-                elif points.shape[1] > self.in_channels:
-                    points = points[:, :self.in_channels]
+                if proc_points.shape[1] < self.in_channels:
+                    pad = np.ones((proc_points.shape[0], self.in_channels - proc_points.shape[1]), dtype=np.float32) * 0.5
+                    proc_points = np.hstack([proc_points, pad])
+                elif proc_points.shape[1] > self.in_channels:
+                    proc_points = proc_points[:, :self.in_channels]
 
                 # Shape: (1, Channels, N)
-                tensor_in = torch.from_numpy(points.T).float().unsqueeze(0).to(device)
+                tensor_in = torch.from_numpy(proc_points.T).float().unsqueeze(0).to(device)
                 logits = self.forward(tensor_in)  # (1, num_classes, N)
                 probs = F.softmax(logits, dim=1).squeeze(0).cpu().numpy()  # (num_classes, N)
 
-                labels = np.argmax(probs, axis=0).astype(np.int32)
-                confidences = np.max(probs, axis=0).astype(np.float32)
+                sub_labels = np.argmax(probs, axis=0).astype(np.int32)
+                sub_confidences = np.max(probs, axis=0).astype(np.float32)
+
+                if original_n > 1024:
+                    full_map = np.round(np.linspace(0, 1023, original_n)).astype(int)
+                    labels = sub_labels[full_map]
+                    confidences = sub_confidences[full_map]
+                else:
+                    labels = sub_labels
+                    confidences = sub_confidences
 
                 return labels, confidences
 
 else:
     class PointNetSegmentation:
         """Dummy placeholder when PyTorch is not installed."""
-        def __init__(self, *args, **kwargs):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            raise ImportError(
+                "PyTorch is not installed in the active environment. "
+                "Install PyTorch via 'pip install torch' to enable the deep learning PointNet engine, "
+                "or use the built-in DeterministicGeometricFallback."
+            )
+
+        def forward(self, *args: Any, **kwargs: Any) -> Any:
+            raise ImportError("PyTorch is not installed in the active environment.")
+
+        def predict_numpy(self, points: np.ndarray, device: str = "cpu") -> Tuple[np.ndarray, np.ndarray]:
             raise ImportError("PyTorch is not installed in the active environment.")

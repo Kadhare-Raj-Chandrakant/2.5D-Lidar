@@ -21,11 +21,14 @@ from typing import Dict, Tuple, Optional
 
 # Check PyTorch availability
 try:
-    import torch
-    from src.perception.models.pointnet import PointNetSegmentation, HAVE_TORCH
+    import torch  # type: ignore
+    try:
+        from src.perception.models.pointnet import PointNetSegmentation, HAVE_TORCH  # type: ignore
+    except (ImportError, ModuleNotFoundError):
+        from .models.pointnet import PointNetSegmentation, HAVE_TORCH  # type: ignore
 except (ImportError, ModuleNotFoundError):
     torch = None
-    PointNetSegmentation = None
+    PointNetSegmentation = None  # type: ignore
     HAVE_TORCH = False
 
 

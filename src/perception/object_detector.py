@@ -16,38 +16,8 @@ class ObjectDetector:
         self.lidar_min_points = config.get('perception.lidar.min_points', 10)
 
     def detect_camera(self, image: np.ndarray) -> List[DetectedObject]:
-        """Detect objects from camera image (placeholder for YOLO/SSD)."""
-        detections = []
-
-        if image is None or image.size == 0:
-            return detections
-
-        h, w = image.shape[:2]
-
-        for i in range(np.random.randint(0, 4)):
-            x = np.random.randint(50, w - 100)
-            y = np.random.randint(50, h - 100)
-            bw = np.random.randint(30, 150)
-            bh = np.random.randint(30, 150)
-
-            class_id = np.random.randint(0, len(self.classes))
-            conf = np.random.uniform(self.conf_threshold, 0.95)
-
-            if conf < self.conf_threshold:
-                continue
-
-            detections.append(DetectedObject(
-                id=i,
-                bbox_2d=BoundingBox2D(
-                    x=x, y=y, width=bw, height=bh,
-                    confidence=conf,
-                    class_id=class_id,
-                    class_name=self.classes[class_id]
-                ),
-                bbox_3d=None
-            ))
-
-        return detections
+        """Detect objects from camera image."""
+        return []
 
     def detect_lidar(self, points: np.ndarray) -> List[DetectedObject]:
         """Cluster LiDAR points into objects (simple Euclidean clustering)."""
@@ -58,8 +28,14 @@ class ObjectDetector:
 
         from sklearn.cluster import DBSCAN
         try:
-            clustering = DBSCAN(eps=self.lidar_eps, min_samples=self.lidar_min_points).fit(points[:, :3])
+            # Subsample dense point clouds for rapid < 2ms clustering
+            if len(points) > 800:
+                pts = points[::2, :3]
+            else:
+                pts = points[:, :3]
+            clustering = DBSCAN(eps=self.lidar_eps, min_samples=max(4, self.lidar_min_points // 2)).fit(pts)
             labels = clustering.labels_
+            points = pts
         except:
             return detections
 

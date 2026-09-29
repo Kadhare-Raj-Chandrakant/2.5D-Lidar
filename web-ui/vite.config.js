@@ -6,6 +6,13 @@ export default defineConfig({
   server: {
     host: true,
     port: 3000,
+    watch: {
+      usePolling: true,
+      interval: 100,
+    },
+    hmr: {
+      overlay: true,
+    },
     proxy: {
       '/ws': {
         target: 'ws://localhost:8765',

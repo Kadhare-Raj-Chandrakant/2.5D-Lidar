@@ -1,4 +1,13 @@
-export function HUD({ vehicleState, behavior, isConnected, perception, trajectory, trafficSignal, cameraMode, onSelectCamera }) {
+export function HUD({ 
+  vehicleState, 
+  behavior, 
+  isConnected, 
+  perception, 
+  trajectory, 
+  trafficSignal, 
+  cameraMode, 
+  onSelectCamera,
+}) {
   const speed = vehicleState ? (vehicleState.speed * 3.6).toFixed(0) : '0'
   const targetSpeed = behavior?.target_speed ? (behavior.target_speed * 3.6).toFixed(0) : '0'
   const accel = vehicleState?.acceleration !== undefined ? vehicleState.acceleration.toFixed(2) : '0.00'
@@ -7,6 +16,8 @@ export function HUD({ vehicleState, behavior, isConnected, perception, trajector
   
   const behaviorLabels = {
     lane_follow: 'Lane Follow (Cruise)',
+    overtaking: 'Autonomous Overtake',
+    merge_back: 'Lane Merge (Return)',
     lane_change_left: 'Avoidance (Pass Left)',
     lane_change_right: 'Lane Change Right',
     sharp_turn: 'Sharp Turn Navigation',
@@ -18,7 +29,7 @@ export function HUD({ vehicleState, behavior, isConnected, perception, trajector
   }
 
   const activeBehavior = behaviorLabels[behavior?.state] || behavior?.state || 'Lane Follow (Cruise)'
-  const isYielding = behavior?.state === 'pedestrian_yield' || behavior?.state === 'traffic_light_stop'
+  const isYielding = behavior?.state === 'pedestrian_yield' || behavior?.state === 'traffic_light_stop' || behavior?.state === 'stop'
   
   const objects = perception?.objects || []
   const trackedCount = objects.filter(o => o.track_id !== undefined).length
@@ -78,6 +89,21 @@ export function HUD({ vehicleState, behavior, isConnected, perception, trajector
               </div>
               <div style={styles.yieldAlertSubtitle}>
                 Vehicle yielding safely before stop line (Target: 0 km/h)
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Autonomous Overtake Alert Banner */}
+        {!isYielding && behavior?.state === 'overtaking' && (
+          <div style={{ ...styles.yieldAlertBanner, background: 'rgba(14, 165, 233, 0.22)', borderColor: '#38bdf8' }}>
+            <div style={styles.yieldAlertIcon}>⚡</div>
+            <div>
+              <div style={{ ...styles.yieldAlertTitle, color: '#38bdf8' }}>
+                AUTONOMOUS OVERTAKE
+              </div>
+              <div style={styles.yieldAlertSubtitle}>
+                Passing slower vehicle | Passing lane active
               </div>
             </div>
           </div>
@@ -301,6 +327,25 @@ const styles = {
     color: '#ffffff',
     background: 'rgba(255, 255, 255, 0.1)',
     border: '1px solid rgba(255, 255, 255, 0.15)',
+  },
+  scenarioBar: {
+    display: 'flex',
+    padding: '6px 16px',
+    gap: 5,
+    background: 'rgba(0, 0, 0, 0.35)',
+    borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+  },
+  scenarioBtn: {
+    flex: 1,
+    padding: '5px 4px',
+    fontSize: 10,
+    fontWeight: 600,
+    color: '#ffffff',
+    border: '1px solid',
+    borderRadius: 6,
+    cursor: 'pointer',
+    textAlign: 'center',
+    transition: 'all 0.15s ease',
   },
   content: {
     padding: '16px 24px 24px',

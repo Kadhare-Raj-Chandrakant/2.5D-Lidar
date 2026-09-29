@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { getLaneWorldPos } from '../utils/roadGeometry'
 
 const initialVehicleState = {
   x: 0,
@@ -96,15 +97,77 @@ export const useSimulationStore = create((set) => ({
   setSensorData: (sensorData) => set({ sensorData }),
   setConnected: (connected) => set({ isConnected: connected }),
   setFPS: (fps) => set({ fps }),
+  setFrameData: (frame) => set((prev) => ({ ...prev, ...frame })),
 
-  updateFromMessage: (data) => set((prev) => ({
-    vehicleState: data.vehicle_state || prev.vehicleState,
-    perception: data.perception || prev.perception,
-    trajectory: data.trajectory || prev.trajectory,
-    behavior: data.behavior || prev.behavior,
-    control: data.control || prev.control,
-    sensorData: data.sensor_data || prev.sensorData,
-  })),
+  updateFromMessage: (data) => set((prev) => {
+    let vehicleState = prev.vehicleState
+    if (data.vehicle_state) {
+      const vs = data.vehicle_state
+      const egoPos = getLaneWorldPos(vs.x, vs.y)
+      vehicleState = {
+        ...vs,
+        worldX: vs.worldX !== undefined ? vs.worldX : egoPos.worldX,
+        worldZ: vs.worldZ !== undefined ? vs.worldZ : egoPos.worldZ,
+        yaw: vs.yaw !== undefined ? egoPos.worldYaw + vs.yaw : egoPos.worldYaw,
+      }
+    }
+
+    let perception = prev.perception
+    if (data.perception) {
+      perception = {
+        ...data.perception,
+        objects: (data.perception.objects || []).map((obj) => {
+          if (!obj.bbox_3d) return obj
+          const objPos = getLaneWorldPos(obj.bbox_3d.x, obj.bbox_3d.y)
+          const cls = obj.class_name || obj.bbox_3d.class_name
+          const isPed = cls === 'pedestrian' || cls === 'person'
+          const pedHeading = isPed 
+            ? (objPos.worldYaw + ((obj.bbox_3d.yaw && obj.bbox_3d.yaw > 2.0) ? -Math.PI / 2 : Math.PI / 2))
+            : (objPos.worldYaw + (obj.bbox_3d.yaw || 0))
+          return {
+            ...obj,
+            class_name: cls,
+            bbox_3d: {
+              ...obj.bbox_3d,
+              worldX: obj.bbox_3d.worldX !== undefined ? obj.bbox_3d.worldX : objPos.worldX,
+              worldZ: obj.bbox_3d.worldZ !== undefined ? obj.bbox_3d.worldZ : objPos.worldZ,
+              worldYaw: obj.bbox_3d.worldYaw !== undefined ? obj.bbox_3d.worldYaw : pedHeading,
+              isCrossing: obj.bbox_3d.isCrossing !== undefined ? obj.bbox_3d.isCrossing : Math.abs(obj.bbox_3d.y) < 7.5,
+              jacketColor: obj.bbox_3d.jacketColor || (obj.id % 2 === 0 ? '#0284c7' : '#ef4444'),
+            }
+          }
+        }),
+        lanes: data.perception.lanes || (prev.perception?.lanes || []),
+        sensor_data: data.perception.sensor_data || prev.perception?.sensor_data,
+      }
+    }
+
+    let trajectory = prev.trajectory
+    if (data.trajectory) {
+      trajectory = {
+        ...data.trajectory,
+        waypoints: (data.trajectory.waypoints || []).map((wp) => {
+          const wpPos = getLaneWorldPos(wp.x, wp.y)
+          return {
+            ...wp,
+            worldX: wp.worldX !== undefined ? wp.worldX : wpPos.worldX,
+            worldZ: wp.worldZ !== undefined ? wp.worldZ : wpPos.worldZ,
+          }
+        })
+      }
+    }
+
+    return {
+      vehicleState,
+      perception,
+      trajectory,
+      trafficSignal: data.traffic_signal || prev.trafficSignal,
+      activeSignalStation: data.active_signal_station !== undefined ? data.active_signal_station : prev.activeSignalStation,
+      behavior: data.behavior || prev.behavior,
+      control: data.control || prev.control,
+      sensorData: data.sensor_data || prev.sensorData,
+    }
+  }),
 }))
 
 // Also export as useStore for backwards compatibility

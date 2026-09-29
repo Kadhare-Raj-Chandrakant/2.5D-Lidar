@@ -1,7 +1,7 @@
-"""Multi-sensor fusion for object tracking."""
+"""Multi-sensor fusion for object tracking with multi-sensor deduplication."""
 import numpy as np
 from typing import List, Dict, Optional
-from ..types import DetectedObject, PerceptionResult, SensorData
+from ..types import DetectedObject, PerceptionResult, SensorData, BoundingBox3D
 from ..utils.config import config
 
 
@@ -58,7 +58,9 @@ class TrackedObject:
         self.age += 1
         self.time_since_update += 1
         if self.obj.bbox_3d:
-            self.obj.bbox_3d.x, self.obj.bbox_3d.y = pos
+            self.obj.bbox_3d.x, self.obj.bbox_3d.y = float(pos[0]), float(pos[1])
+            vx, vy = float(self.kf.x[2]), float(self.kf.x[3])
+            self.obj.bbox_3d.velocity = (vx, vy, 0.0)
         return pos
 
     def update(self, obj: DetectedObject):
@@ -71,79 +73,133 @@ class TrackedObject:
         self.kf.update(z)
         self.hits += 1
         self.time_since_update = 0
+
+        # Preserve richer classification and metadata if incoming object has it
+        old_bbox = self.obj.bbox_3d
         self.obj = obj
+        if self.obj.bbox_3d and old_bbox:
+            if hasattr(old_bbox, 'jacketColor') and not hasattr(self.obj.bbox_3d, 'jacketColor'):
+                self.obj.bbox_3d.jacketColor = old_bbox.jacketColor
+            if hasattr(old_bbox, 'isCrossing'):
+                self.obj.bbox_3d.isCrossing = old_bbox.isCrossing
+
+        if self.obj.bbox_3d:
+            vx, vy = float(self.kf.x[2]), float(self.kf.x[3])
+            if obj.bbox_3d.velocity and abs(obj.bbox_3d.velocity[0]) > 0.5:
+                vx = obj.bbox_3d.velocity[0]
+            self.obj.bbox_3d.velocity = (vx, vy, 0.0)
 
 
 class SensorFusion:
-    """Fuses camera, LiDAR, and radar detections with tracking."""
+    """Fuses camera, LiDAR, and radar detections with multi-sensor deduplication."""
 
     def __init__(self):
         self.tracks: Dict[int, TrackedObject] = {}
         self.next_track_id = 0
-        self.max_age = 30
-        self.min_hits = 3
-        self.iou_threshold = 0.3
+        self.max_age = 15
+        self.min_hits = 2
+        self.spatial_gate = 3.2  # Max distance in meters to associate multi-sensor returns
+
+    def _cluster_cross_sensor_detections(self, detections: List[DetectedObject]) -> List[DetectedObject]:
+        """Merge detections from different sensors for the exact same physical actor."""
+        fused = []
+        used = set()
+
+        for i, det_a in enumerate(detections):
+            if i in used or not det_a.bbox_3d:
+                continue
+
+            merged_det = det_a
+            used.add(i)
+
+            for j in range(i + 1, len(detections)):
+                if j in used or not detections[j].bbox_3d:
+                    continue
+
+                det_b = detections[j]
+                dist = np.hypot(det_a.bbox_3d.x - det_b.bbox_3d.x, det_a.bbox_3d.y - det_b.bbox_3d.y)
+                if dist < self.spatial_gate:
+                    used.add(j)
+                    # Merge properties: keep more specific class and LiDAR geometry
+                    if det_b.bbox_3d.class_name in ['truck', 'bus', 'pedestrian', 'person']:
+                        merged_det.bbox_3d.class_name = det_b.bbox_3d.class_name
+                        merged_det.bbox_3d.length = det_b.bbox_3d.length
+                        merged_det.bbox_3d.width = det_b.bbox_3d.width
+                        merged_det.bbox_3d.height = det_b.bbox_3d.height
+
+                    # If det_b has velocity from radar, adopt it
+                    if det_b.bbox_3d.velocity and abs(det_b.bbox_3d.velocity[0]) > 0.1:
+                        merged_det.bbox_3d.velocity = det_b.bbox_3d.velocity
+
+                    merged_det.bbox_3d.confidence = min(0.99, merged_det.bbox_3d.confidence + 0.15)
+
+            fused.append(merged_det)
+
+        return fused
 
     def fuse(self, camera_objs: List[DetectedObject],
              lidar_objs: List[DetectedObject],
              radar_objs: List[DetectedObject]) -> List[DetectedObject]:
-        """Fuse detections from multiple sensors."""
-        all_detections = camera_objs + lidar_objs + radar_objs
+        """Fuse detections from multiple sensors without creating duplicate ghost tracks."""
+        raw_detections = [d for d in (lidar_objs + radar_objs) if d.bbox_3d]
+        all_detections = self._cluster_cross_sensor_detections(raw_detections)
 
+        # 1. Predict track states
         for track in self.tracks.values():
             track.predict()
 
         matched_tracks = set()
         matched_dets = set()
 
-        for i, track in enumerate(self.tracks.values()):
-            best_iou = 0
+        # 2. Associate detections with tracks via spatial distance
+        for track_id, track in self.tracks.items():
+            if not track.obj.bbox_3d:
+                continue
+            t_x = track.obj.bbox_3d.x
+            t_y = track.obj.bbox_3d.y
+
+            best_dist = float('inf')
             best_idx = -1
+
             for j, det in enumerate(all_detections):
-                if j in matched_dets:
+                if j in matched_dets or not det.bbox_3d:
                     continue
-                iou = self._compute_iou(track.obj, det)
-                if iou > best_iou and iou > self.iou_threshold:
-                    best_iou = iou
+                d = np.hypot(t_x - det.bbox_3d.x, t_y - det.bbox_3d.y)
+                if d < best_dist and d < self.spatial_gate:
+                    best_dist = d
                     best_idx = j
 
             if best_idx >= 0:
                 track.update(all_detections[best_idx])
-                matched_tracks.add(track.track_id)
+                matched_tracks.add(track_id)
                 matched_dets.add(best_idx)
 
+        # 3. Create new tracks only for genuinely new unmatched detections
         for j, det in enumerate(all_detections):
             if j not in matched_dets:
                 track = TrackedObject(det, self.next_track_id)
                 self.tracks[self.next_track_id] = track
                 self.next_track_id += 1
 
-        to_delete = []
-        for track_id, track in self.tracks.items():
-            if track.time_since_update > self.max_age:
-                to_delete.append(track_id)
-
+        # 4. Prune stale tracks
+        to_delete = [
+            tid for tid, trk in self.tracks.items()
+            if trk.time_since_update > self.max_age
+        ]
         for tid in to_delete:
             del self.tracks[tid]
 
+        # 5. Return confirmed tracks (one per physical obstacle)
         confirmed = []
         for track in self.tracks.values():
-            if track.hits >= self.min_hits:
+            if track.hits >= self.min_hits and track.obj.bbox_3d:
                 track.obj.track_id = track.track_id
+                track.obj.id = track.track_id
                 track.obj.age = track.age
                 track.obj.hits = track.hits
                 confirmed.append(track.obj)
 
         return confirmed
-
-    def _compute_iou(self, obj1: DetectedObject, obj2: DetectedObject) -> float:
-        """Compute IoU between two objects (simplified)."""
-        if obj1.bbox_3d and obj2.bbox_3d:
-            dx = abs(obj1.bbox_3d.x - obj2.bbox_3d.x)
-            dy = abs(obj1.bbox_3d.y - obj2.bbox_3d.y)
-            if dx < 5 and dy < 5:
-                return 1.0 / (1.0 + dx + dy)
-        return 0.0
 
     def get_tracks(self) -> List[TrackedObject]:
         return list(self.tracks.values())

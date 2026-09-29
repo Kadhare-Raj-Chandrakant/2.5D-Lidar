@@ -32,19 +32,16 @@ export function useWebSocket(url = 'ws://localhost:8765') {
       }
 
       ws.onclose = () => {
-        console.log('[WebSocket] Disconnected. Retrying in 2s...')
         setConnected(false)
         wsRef.current = null
-        reconnectTimeoutRef.current = setTimeout(connect, 2000)
+        reconnectTimeoutRef.current = setTimeout(connect, 600)
       }
 
       ws.onerror = (err) => {
-        console.warn('[WebSocket] Connection attempt failed. Retrying...')
         ws.close()
       }
     } catch (err) {
-      console.warn('[WebSocket] Setup error:', err)
-      reconnectTimeoutRef.current = setTimeout(connect, 2000)
+      reconnectTimeoutRef.current = setTimeout(connect, 600)
     }
   }, [url, updateFromMessage, setConnected])
 

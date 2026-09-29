@@ -3,9 +3,17 @@
 # Excludes assistant skills, temporary artifacts, heavy node_modules & external repos
 # ==============================================================================
 
-# Assistant / Claude Skills (Unnecessary for production repo)
+# Assistant / IDE Skills & Agents (Unnecessary for production repo)
 claudedesignskills/
 .gemini/
+.agents/
+.checkpoints/
+rollback.bat
+graphify-out/
+powershell.bat
+start_live.bat
+watch_backend.py
+verify_simulation.py
 
 # Node.js / React Web UI Build Artifacts
 node_modules/
@@ -49,6 +57,7 @@ htmlcov/
 
 # Logs & Diagnostics
 *.log
+.logs/
 fovea_lidar/live_server.log
 
 # Large Media Files (>40MB - fovea_demo.gif at 4MB is tracked for README)

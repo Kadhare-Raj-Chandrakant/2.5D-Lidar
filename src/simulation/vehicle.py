@@ -33,7 +33,10 @@ class VehicleManager:
         engine_force = throttle * 4000
         brake_force = brake * 8000
         drag_force = 0.5 * 1.225 * self.drag_coeff * 2.2 * vehicle_state.speed**2
-        rolling_force = self.rolling_resistance * self.mass * 9.81
+        if vehicle_state.speed > 0.05:
+            rolling_force = self.rolling_resistance * self.mass * 9.81
+        else:
+            rolling_force = min(engine_force, self.rolling_resistance * self.mass * 9.81) if engine_force > 0 else 0.0
 
         net_force = engine_force - brake_force - drag_force - rolling_force
         acceleration = net_force / self.mass

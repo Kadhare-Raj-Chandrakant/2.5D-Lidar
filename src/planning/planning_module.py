@@ -13,7 +13,7 @@ class PlanningModule:
         self.global_planner = GlobalPlanner()
         self.local_planner = LocalPlanner()
         self.behavior_planner = BehaviorPlanner()
-        self.goal = (100.0, 0.0)  # Default goal
+        self.goal = (1500.0, 1.75)  # Default highway goal
 
     def set_goal(self, x: float, y: float):
         """Set navigation goal."""

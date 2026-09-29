@@ -43,44 +43,39 @@ class LocalPlanner:
 
     def _create_reference_path(self, waypoints: List[Waypoint],
                                vehicle_state: VehicleState) -> np.ndarray:
-        """Create dense reference path from waypoints."""
+        """Create dense reference path from waypoints for local horizon."""
         if len(waypoints) < 2:
-            return np.array([[vehicle_state.x, vehicle_state.y, vehicle_state.yaw]])
+            return np.array([[vehicle_state.x, vehicle_state.y, vehicle_state.yaw, 0.0]])
 
-        xs = [wp.x for wp in waypoints]
-        ys = [wp.y for wp in waypoints]
-        yaws = [wp.yaw for wp in waypoints]
-        ss = [wp.s for wp in waypoints]
+        # Local horizon window to avoid interpolating thousands of distant waypoints
+        min_s = vehicle_state.x - 25.0
+        max_s = vehicle_state.x + self.horizon + 35.0
+        local_wps = [wp for wp in waypoints if min_s <= wp.s <= max_s]
+        if len(local_wps) < 2:
+            local_wps = waypoints[:40]
 
-        s_dense = np.linspace(ss[0], ss[-1], max(100, int((ss[-1] - ss[0]) / 0.5)))
+        xs = [wp.x for wp in local_wps]
+        ys = [wp.y for wp in local_wps]
+        yaws = [wp.yaw for wp in local_wps]
+        ss = [wp.s for wp in local_wps]
+
+        num_pts = max(30, int((ss[-1] - ss[0]) / 0.5))
+        s_dense = np.linspace(ss[0], ss[-1], num_pts)
 
         from scipy.interpolate import interp1d
         fx = interp1d(ss, xs, kind='linear', fill_value='extrapolate')
         fy = interp1d(ss, ys, kind='linear', fill_value='extrapolate')
         fyaw = interp1d(ss, yaws, kind='linear', fill_value='extrapolate')
 
-        return np.column_stack([fx(s_dense), fy(s_dense), fyaw(s_dense)])
+        return np.column_stack([fx(s_dense), fy(s_dense), fyaw(s_dense), s_dense])
 
     def _cartesian_to_frenet(self, vehicle_state: VehicleState,
                              ref_path: np.ndarray) -> np.ndarray:
         """Convert vehicle state to Frenet coordinates."""
-        min_dist = float('inf')
-        nearest_idx = 0
-        for i, pt in enumerate(ref_path):
-            dist = (pt[0] - vehicle_state.x)**2 + (pt[1] - vehicle_state.y)**2
-            if dist < min_dist:
-                min_dist = dist
-                nearest_idx = i
+        dists = (ref_path[:, 0] - vehicle_state.x)**2 + (ref_path[:, 1] - vehicle_state.y)**2
+        nearest_idx = int(np.argmin(dists))
 
-        if nearest_idx == 0:
-            s = 0
-        elif nearest_idx >= len(ref_path) - 1:
-            s = np.sum(np.sqrt(np.diff(ref_path[:nearest_idx, 0])**2 +
-                            np.diff(ref_path[:nearest_idx, 1])**2))
-        else:
-            s = np.sum(np.sqrt(np.diff(ref_path[:nearest_idx, 0])**2 +
-                            np.diff(ref_path[:nearest_idx, 1])**2))
-
+        s = float(ref_path[nearest_idx, 3]) if ref_path.shape[1] > 3 else nearest_idx * 0.5
         ref_yaw = ref_path[nearest_idx, 2]
         dx = vehicle_state.x - ref_path[nearest_idx, 0]
         dy = vehicle_state.y - ref_path[nearest_idx, 1]
@@ -99,8 +94,11 @@ class LocalPlanner:
         elif behavior.state.name == "LANE_CHANGE_RIGHT":
             target_d = 0.0
         else:
-            # Snap to nearest valid lane center
-            target_d = round(current_d / lane_width) * lane_width
+            # Snap to cruising lane (0.0) or passing lane (-3.5)
+            if current_d < -1.75:
+                target_d = -lane_width
+            else:
+                target_d = 0.0
 
         return float(target_d)
 
@@ -111,16 +109,24 @@ class LocalPlanner:
         candidates = []
         s0, d0, v0, _ = frenet_state
 
+        effective_target_speed = max(behavior.target_speed, 15.0) if behavior.state.name != "EMERGENCY_STOP" else 0.0
+
+        is_changing_lane = behavior.state.name in ["LANE_CHANGE_LEFT", "LANE_CHANGE_RIGHT"]
+        T_long = max(2.0, min(self.horizon / max(v0, 6.0), 6.0))
+        T_lat = 2.0 if is_changing_lane else T_long
+
         for i in range(self.num_paths):
-            d_target = target_d + (i - self.num_paths // 2) * 1.0
+            d_target = target_d + (i - self.num_paths // 2) * 0.35
 
-            T = self.horizon / max(v0, 1.0)
-            T = max(T, 2.0)
+            coeffs_d = self._quartic_poly(d0, 0, 0, d_target, 0, 0, T_lat)
+            coeffs_s = self._quartic_poly(s0, v0, 0, target_s, effective_target_speed, 0, T_long)
 
-            coeffs_d = self._quartic_poly(d0, 0, 0, d_target, 0, 0, T)
-            coeffs_s = self._quartic_poly(s0, v0, 0, target_s, behavior.target_speed, 0, T)
-
-            traj = {'coeffs_s': coeffs_s, 'coeffs_d': coeffs_d, 'T': T}
+            traj = {
+                'coeffs_s': coeffs_s, 'coeffs_d': coeffs_d,
+                'd0': d0,
+                'T': T_long, 'T_lat': T_lat,
+                'target_d': d_target, 'target_d_goal': target_d
+            }
             candidates.append(traj)
 
         return candidates
@@ -141,97 +147,115 @@ class LocalPlanner:
                                 perception: PerceptionResult,
                                 ref_path: np.ndarray) -> dict:
         """Select best trajectory based on cost function."""
+        if not candidates:
+            return None
+
+        # Precompute Frenet coordinates of detected objects ONCE per frame
+        frenet_objs = []
+        for obj in perception.objects:
+            if obj.bbox_3d:
+                dists = (ref_path[:, 0] - obj.bbox_3d.x)**2 + (ref_path[:, 1] - obj.bbox_3d.y)**2
+                nearest_idx = int(np.argmin(dists))
+                obj_s = float(ref_path[nearest_idx, 3]) if ref_path.shape[1] > 3 else nearest_idx * 0.5
+                ref_yaw = ref_path[nearest_idx, 2]
+                dx = obj.bbox_3d.x - ref_path[nearest_idx, 0]
+                dy = obj.bbox_3d.y - ref_path[nearest_idx, 1]
+                obj_d = -np.sin(ref_yaw) * dx + np.cos(ref_yaw) * dy
+                frenet_objs.append((obj_s, obj_d))
+
         best_cost = float('inf')
-        best_traj = candidates[0] if candidates else None
+        best_traj = candidates[0]
 
         for traj in candidates:
-            cost = self._compute_trajectory_cost(traj, perception, ref_path)
+            cost = self._compute_trajectory_cost(traj, frenet_objs)
             if cost < best_cost:
                 best_cost = cost
                 best_traj = traj
 
         return best_traj
 
-    def _compute_trajectory_cost(self, traj: dict, perception: PerceptionResult,
-                                 ref_path: np.ndarray) -> float:
-        """Compute trajectory cost."""
-        coeffs_s, coeffs_d, T = traj['coeffs_s'], traj['coeffs_d'], traj['T']
+    def _compute_trajectory_cost(self, traj: dict, frenet_objs: List) -> float:
+        """Compute trajectory cost in Frenet frame."""
+        coeffs_s = traj['coeffs_s']
+        d0 = traj.get('d0', 0.0)
+        T = traj['T']
+        target_d = traj['target_d']
+        target_d_goal = traj['target_d_goal']
 
-        cost = 0
-        num_samples = 20
-        for i in range(num_samples):
-            t = i * T / num_samples
+        num_samples = 15
+        t_samples = np.linspace(0, T, num_samples)
 
-            s = np.polyval(coeffs_s[::-1], t)
-            d = np.polyval(coeffs_d[::-1], t)
-            v = np.polyval(np.polyder(coeffs_s[::-1]), t)
-            a = np.polyval(np.polyder(coeffs_s[::-1], 2), t)
-            jerk = np.polyval(np.polyder(coeffs_s[::-1], 3), t)
+        s_vals = np.polyval(coeffs_s[::-1], t_samples)
+        v_vals = np.polyval(np.polyder(coeffs_s[::-1]), t_samples)
+        s0 = s_vals[0]
+        L_lat = max(24.0, min(35.0, 1.3 * max(v_vals[0], 5.0)))
 
-            d_prime = np.polyval(np.polyder(coeffs_d[::-1]), t)
-            d_double_prime = np.polyval(np.polyder(coeffs_d[::-1], 2), t)
-            curvature = abs(d_double_prime) / (1 + d_prime**2)**1.5
+        d_vals = []
+        for s in s_vals:
+            progress = np.clip((s - s0) / L_lat, 0.0, 1.0)
+            smooth_p = progress * progress * (3.0 - 2.0 * progress)
+            d_vals.append(d0 + (target_d - d0) * smooth_p)
+        d_vals = np.array(d_vals)
 
-            cost += self.weights['jerk'] * jerk**2
-            cost += self.weights['curvature'] * curvature**2
-            cost += self.weights['deviation'] * d**2
+        s_jerk = np.polyder(coeffs_s[::-1], 3)
+        jerk = np.polyval(s_jerk, t_samples)
 
-            for obj in perception.objects:
-                if obj.bbox_3d:
-                    obj_s, obj_d = self._cartesian_to_frenet_obj(obj.bbox_3d, ref_path)
+        cost = 0.0
+        # Penalize deviation of candidate target offset from behavior goal
+        cost += 350.0 * float((target_d - target_d_goal)**2)
+        cost += self.weights['jerk'] * float(np.sum(jerk**2)) * 0.01
+
+        if frenet_objs:
+            for obj_s, obj_d in frenet_objs:
+                for s, d in zip(s_vals, d_vals):
                     dist_s = abs(obj_s - s)
                     dist_d = abs(obj_d - d)
-                    if dist_s < 10 and dist_d < 5:
+                    if dist_s < 14.0 and dist_d < 2.5:
                         cost += self.weights['collision'] / (dist_s + dist_d + 0.1)
 
-        return cost
-
-    def _cartesian_to_frenet_obj(self, bbox, ref_path):
-        """Convert object bbox to Frenet (simplified)."""
-        min_dist = float('inf')
-        nearest_idx = 0
-        for i, pt in enumerate(ref_path):
-            dist = (pt[0] - bbox.x)**2 + (pt[1] - bbox.y)**2
-            if dist < min_dist:
-                min_dist = dist
-                nearest_idx = i
-
-        s = np.sum(np.sqrt(np.diff(ref_path[:nearest_idx+1, 0])**2 +
-                        np.diff(ref_path[:nearest_idx+1, 1])**2))
-        ref_yaw = ref_path[nearest_idx, 2]
-        dx = bbox.x - ref_path[nearest_idx, 0]
-        dy = bbox.y - ref_path[nearest_idx, 1]
-        d = -np.sin(ref_yaw) * dx + np.cos(ref_yaw) * dy
-        return s, d
+        return float(cost)
 
     def _frenet_to_cartesian(self, traj: dict, ref_path: np.ndarray,
                              timestamp: float) -> Trajectory:
         """Convert Frenet trajectory to Cartesian waypoints."""
-        coeffs_s, coeffs_d, T = traj['coeffs_s'], traj['coeffs_d'], traj['T']
+        coeffs_s = traj['coeffs_s']
+        d0 = traj.get('d0', 0.0)
+        T = traj['T']
+        target_d = traj['target_d']
 
         trajectory = Trajectory(timestamp=timestamp)
-        num_points = 50
+        num_points = 30
+        t_samples = np.linspace(0, T, num_points)
 
-        for i in range(num_points):
-            t = i * T / num_points
-            s = np.polyval(coeffs_s[::-1], t)
-            d = np.polyval(coeffs_d[::-1], t)
+        s_vals = np.polyval(coeffs_s[::-1], t_samples)
+        v_vals = np.polyval(np.polyder(coeffs_s[::-1]), t_samples)
+        s0 = s_vals[0]
+        L_lat = max(24.0, min(35.0, 1.3 * max(v_vals[0], 5.0)))
 
-            idx = min(int(s / 0.5), len(ref_path) - 2)
-            if idx < 0:
-                idx = 0
+        d_vals = []
+        d_prime_vals = []
+        for s, v in zip(s_vals, v_vals):
+            progress = np.clip((s - s0) / L_lat, 0.0, 1.0)
+            smooth_p = progress * progress * (3.0 - 2.0 * progress)
+            d = d0 + (target_d - d0) * smooth_p
+            d_ds = (target_d - d0) * 6.0 * progress * (1.0 - progress) / L_lat
+            d_prime = d_ds * v
+            d_vals.append(float(d))
+            d_prime_vals.append(float(d_prime))
 
-            ref_x, ref_y, ref_yaw = ref_path[idx]
+        s_coords = ref_path[:, 3] if ref_path.shape[1] > 3 else ref_path[:, 0]
+
+        for s, d, v, d_prime in zip(s_vals, d_vals, v_vals, d_prime_vals):
+            dists = np.abs(s_coords - s)
+            idx = int(np.argmin(dists))
+
+            ref_x, ref_y, ref_yaw = ref_path[idx, :3]
             x = ref_x - np.sin(ref_yaw) * d
             y = ref_y + np.cos(ref_yaw) * d
-
-            v = np.polyval(np.polyder(coeffs_s[::-1]), t)
-            yaw = ref_yaw + np.arctan2(
-                np.polyval(np.polyder(coeffs_d[::-1]), t), 1
-            )
+            yaw = ref_yaw + np.arctan2(d_prime, max(v, 1.0))
 
             trajectory.waypoints.append(Waypoint(
-                x=x, y=y, yaw=yaw, speed=max(0, v), s=s
+                x=float(x), y=float(y), yaw=float(yaw), speed=float(max(0.0, v)), s=float(s)
             ))
 
         trajectory.valid = True

@@ -56,9 +56,6 @@ class PerceptionModule:
             }
         )
 
-        self.world_objects = fused_objects
-        self.sensor_sim.update_world_objects(fused_objects)
-
         return result
 
     def update_world_objects(self, objects: List):

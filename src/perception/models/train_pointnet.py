@@ -13,16 +13,24 @@ import os
 import sys
 import time
 import argparse
+from typing import Tuple, Optional, Dict, List, Any
 import numpy as np
 
+# Ensure repository root is on sys.path for direct script invocation
+_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+
 try:
-    import torch
-    import torch.nn as nn
-    import torch.optim as optim
-    from torch.utils.data import Dataset, DataLoader
+    import torch  # type: ignore
+    import torch.nn as nn  # type: ignore
+    import torch.optim as optim  # type: ignore
+    from torch.utils.data import Dataset, DataLoader  # type: ignore
     HAVE_TORCH = True
-except ImportError:
+except (ImportError, ModuleNotFoundError):
     HAVE_TORCH = False
+    Dataset = object  # type: ignore
+    DataLoader = Any  # type: ignore
 
 
 class LidarSemanticDataset(Dataset):

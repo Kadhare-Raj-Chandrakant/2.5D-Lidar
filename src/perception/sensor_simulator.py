@@ -150,9 +150,11 @@ class SensorSimulator:
                 continue
 
             detections.append({
-                'x': local_x,
-                'y': local_y,
+                'x': obj.bbox_3d.x,
+                'y': obj.bbox_3d.y,
                 'z': obj.bbox_3d.z,
+                'local_x': local_x,
+                'local_y': local_y,
                 'velocity': obj.bbox_3d.velocity[0] if obj.bbox_3d.velocity else 0,
                 'rcs': 10.0
             })

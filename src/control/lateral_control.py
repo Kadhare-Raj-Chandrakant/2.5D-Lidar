@@ -47,14 +47,24 @@ class PurePursuitController:
     def _get_target_point(self, vehicle_state: VehicleState,
                           trajectory: List[Waypoint],
                           lookahead: float) -> Waypoint:
-        """Find target point at lookahead distance."""
+        """Find target point at lookahead distance strictly ahead of vehicle."""
+        cos_yaw = np.cos(vehicle_state.yaw)
+        sin_yaw = np.sin(vehicle_state.yaw)
+
         for wp in trajectory:
             dx = wp.x - vehicle_state.x
             dy = wp.y - vehicle_state.y
-            dist = np.hypot(dx, dy)
-            if dist >= lookahead:
-                return wp
-        return trajectory[-1]
+            local_x = cos_yaw * dx + sin_yaw * dy
+            if local_x > 0.5:
+                dist = np.hypot(dx, dy)
+                if dist >= lookahead:
+                    return wp
+
+        forward_wps = [
+            wp for wp in trajectory 
+            if (cos_yaw * (wp.x - vehicle_state.x) + sin_yaw * (wp.y - vehicle_state.y)) > 0.2
+        ]
+        return forward_wps[-1] if forward_wps else trajectory[-1]
 
 
 class StanleyController:

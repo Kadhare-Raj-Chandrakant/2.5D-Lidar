@@ -32,8 +32,10 @@ class BirdEyeView:
                trajectory: Trajectory,
                behavior: BehaviorDecision) -> pygame.Surface:
         """Render bird's eye view."""
-        self.surface.fill((30, 30, 40))
+        # Surrounding landscape / grass terrain (deep natural green)
+        self.surface.fill((21, 54, 34))
 
+        self._draw_road_surface(vehicle_state)
         self._draw_grid()
         self._draw_lanes(perception.lanes, vehicle_state)
         self._draw_objects(perception.objects, vehicle_state)
@@ -43,6 +45,54 @@ class BirdEyeView:
         self._draw_info(vehicle_state, behavior)
 
         return self.surface
+
+    def _draw_road_surface(self, vehicle_state: VehicleState):
+        """Draw realistic asphalt road corridor, sidewalks, and curbs."""
+        road_half_width = 8.0  # 16m total roadway
+        curb_width = 0.8
+        sidewalk_width = 2.5
+
+        ds_range = np.linspace(-self.range * 1.2, self.range * 1.2, 40)
+
+        left_sidewalk_pts = []
+        right_sidewalk_pts = []
+        left_curb_pts = []
+        right_curb_pts = []
+        left_road_pts = []
+        right_road_pts = []
+
+        for ds in ds_range:
+            wx = vehicle_state.x + ds
+            wy = 0.0
+
+            l_sw = self._world_to_screen(wx, wy - (road_half_width + curb_width + sidewalk_width), vehicle_state)
+            r_sw = self._world_to_screen(wx, wy + (road_half_width + curb_width + sidewalk_width), vehicle_state)
+            l_cb = self._world_to_screen(wx, wy - (road_half_width + curb_width), vehicle_state)
+            r_cb = self._world_to_screen(wx, wy + (road_half_width + curb_width), vehicle_state)
+            l_rd = self._world_to_screen(wx, wy - road_half_width, vehicle_state)
+            r_rd = self._world_to_screen(wx, wy + road_half_width, vehicle_state)
+
+            left_sidewalk_pts.append(l_sw)
+            right_sidewalk_pts.append(r_sw)
+            left_curb_pts.append(l_cb)
+            right_curb_pts.append(r_cb)
+            left_road_pts.append(l_rd)
+            right_road_pts.append(r_rd)
+
+        # 1. Paved concrete sidewalks
+        if len(left_sidewalk_pts) >= 2 and len(right_sidewalk_pts) >= 2:
+            sw_poly = left_sidewalk_pts + right_sidewalk_pts[::-1]
+            pygame.draw.polygon(self.surface, (63, 69, 83), sw_poly)
+
+        # 2. Asphalt roadway (rich dark-slate tarmac)
+        if len(left_road_pts) >= 2 and len(right_road_pts) >= 2:
+            road_poly = left_road_pts + right_road_pts[::-1]
+            pygame.draw.polygon(self.surface, (34, 38, 51), road_poly)
+
+        # 3. Raised concrete curb lines
+        if len(left_curb_pts) >= 2:
+            pygame.draw.lines(self.surface, (100, 116, 139), False, left_curb_pts, 3)
+            pygame.draw.lines(self.surface, (100, 116, 139), False, right_curb_pts, 3)
 
     def _draw_grid(self):
         """Draw coordinate grid."""
