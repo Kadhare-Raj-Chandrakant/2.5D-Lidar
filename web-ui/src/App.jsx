@@ -194,8 +194,17 @@ export default function App() {
     setFrameData
   } = useSimulationStore()
 
-  // Connect to Python WebSocket (VITE_WS_URL set in production; localhost fallback for local dev)
-  useWebSocket(import.meta.env.VITE_WS_URL || 'ws://localhost:8765')
+  // WebSocket URL precedence:
+  //   1. ?ws=... query param  — lets an ephemeral tunnel URL be passed by link,
+  //                             so no Vercel rebuild is needed when it changes
+  //   2. VITE_WS_URL           — stable deployment (set in Vercel env)
+  //   3. localhost fallback    — local dev
+  const wsUrl = new URLSearchParams(window.location.search).get('ws')
+    || import.meta.env.VITE_WS_URL
+    || 'ws://localhost:8765'
+
+  // Connect to Python WebSocket
+  useWebSocket(wsUrl)
 
   // Smooth autonomous simulation & obstacle avoidance loop
   useEffect(() => {

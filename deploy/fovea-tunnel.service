@@ -1,0 +1,29 @@
+[Unit]
+Description=Fovea telemetry tunnel (ngrok)
+Documentation=https://dashboard.ngrok.com
+After=network-online.target fovea.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+
+# systemd does not set $HOME for services. Without this, ngrok cannot find
+# ~/.config/ngrok/ngrok.yml and starts with no authtoken.
+Environment=HOME=/home/ubuntu
+
+# To change the public hostname, edit --domain below. The tunnel reuses the
+# reserved domain on every restart, so this URL is permanent.
+ExecStart=/usr/local/bin/ngrok http 8765 \
+    --domain unabsorptive-kyla-slyly.ngrok-free.dev \
+    --log=stdout
+
+Restart=always
+RestartSec=5
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=fovea-tunnel
+
+[Install]
+WantedBy=multi-user.target

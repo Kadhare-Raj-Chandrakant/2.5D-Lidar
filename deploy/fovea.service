@@ -5,11 +5,13 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=ec2-user
-WorkingDirectory=/opt/fovea
+User=ubuntu
 
-# WS_HOST must be 0.0.0.0 or the server binds loopback only and is unreachable
-# from Caddy.
+# The image contains the application at /app, so no host WorkingDirectory is
+# required.
+
+# WS_HOST must be 0.0.0.0 or the server binds loopback only and the ngrok
+# tunnel cannot reach it.
 Environment=WS_HOST=0.0.0.0
 Environment=PYTHONUNBUFFERED=1
 
