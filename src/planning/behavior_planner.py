@@ -71,39 +71,24 @@ class BehaviorPlanner:
 
         # 3. Standard Lane Following & Overtaking
         if self.state == BehaviorState.LANE_FOLLOW:
-            # Check if we were in the passing lane (y ≈ -1.75) and have overtaken our target
+            # Case A: We are in passing lane (y < 0.0) -> check if ready to merge back into cruising lane (y = 1.75)
             if vehicle_state.y < 0.0:
-                should_return = False
-                if self.overtaking_target_id is not None:
-                    target_obj = next((o for o in perception.objects if o.id == self.overtaking_target_id), None)
-                    if target_obj and target_obj.bbox_3d:
-                        rel_x = vehicle_state.x - target_obj.bbox_3d.x
-                        if rel_x >= 16.0:  # Safely ahead of overtaken vehicle by >= 16m
-                            should_return = True
-                    else:
-                        should_return = True
-                else:
-                    should_return = True
-
-                if should_return and self._can_change_right(perception, vehicle_state):
+                # Merge back right if cruising lane has safe clearance
+                if self._can_change_right(perception, vehicle_state):
                     self.state = BehaviorState.LANE_CHANGE_RIGHT
                     self.target_lane = 0
                     self.lane_change_timer = 0.0
                     self.overtaking_target_id = None
                     return
 
-            # Check if there is a slower vehicle ahead in our lane to overtake
-            if front_vehicle and self._should_change_lane(front_vehicle, vehicle_state):
-                if self._can_change_left(perception, vehicle_state):
-                    self.state = BehaviorState.LANE_CHANGE_LEFT
-                    self.target_lane = -1
-                    self.overtaking_target_id = front_vehicle.id
-                    self.lane_change_timer = 0.0
-                elif self._can_change_right(perception, vehicle_state):
-                    self.state = BehaviorState.LANE_CHANGE_RIGHT
-                    self.target_lane = 1
-                    self.overtaking_target_id = front_vehicle.id
-                    self.lane_change_timer = 0.0
+            # Case B: We are in cruising lane (y >= 0.0) -> check if we should overtake slower vehicle ahead
+            else:
+                if front_vehicle and self._should_change_lane(front_vehicle, vehicle_state):
+                    if self._can_change_left(perception, vehicle_state):
+                        self.state = BehaviorState.LANE_CHANGE_LEFT
+                        self.target_lane = -1
+                        self.overtaking_target_id = front_vehicle.id
+                        self.lane_change_timer = 0.0
 
         # 4. Lane Change Maneuvers in progress
         elif self.state in [BehaviorState.LANE_CHANGE_LEFT, BehaviorState.LANE_CHANGE_RIGHT]:
@@ -132,8 +117,10 @@ class BehaviorPlanner:
 
     def _get_front_vehicle(self, perception: PerceptionResult,
                            vehicle_state: VehicleState) -> Optional[DetectedObject]:
-        """Find closest vehicle ahead in same lane within detection range."""
+        """Find closest vehicle ahead in our active target lane corridor."""
         front_vehicles = []
+        target_y = -1.75 if (self.state == BehaviorState.LANE_CHANGE_LEFT or vehicle_state.y < 0.0) else 1.75
+
         for obj in perception.objects:
             if not obj.bbox_3d:
                 continue
@@ -142,15 +129,9 @@ class BehaviorPlanner:
                 continue
 
             rel_x = obj.bbox_3d.x - vehicle_state.x
-            rel_y = obj.bbox_3d.y - vehicle_state.y
-
-            yaw = vehicle_state.yaw
-            local_x = np.cos(yaw) * rel_x + np.sin(yaw) * rel_y
-            local_y = -np.sin(yaw) * rel_x + np.cos(yaw) * rel_y
-
-            # In front within 50m and within same lane (1.75m lateral)
-            if 0.0 < local_x < 50.0 and abs(local_y) < 1.75:
-                front_vehicles.append((local_x, obj))
+            # Ahead along road within 55m and in our road lane corridor (within 1.5m of target lane center)
+            if 0.0 < rel_x < 55.0 and abs(obj.bbox_3d.y - target_y) < 1.5:
+                front_vehicles.append((rel_x, obj))
 
         if front_vehicles:
             return min(front_vehicles, key=lambda x: x[0])[1]
@@ -158,17 +139,21 @@ class BehaviorPlanner:
 
     def _check_emergency(self, front_vehicle: Optional[DetectedObject],
                          vehicle_state: VehicleState) -> bool:
-        """Check if emergency braking is needed."""
+        """Check if emergency braking is needed with lead vehicle in our lane."""
         if not front_vehicle or not front_vehicle.bbox_3d:
             return False
 
+        target_y = -1.75 if (self.state == BehaviorState.LANE_CHANGE_LEFT or vehicle_state.y < 0.0) else 1.75
+        if abs(front_vehicle.bbox_3d.y - target_y) > 1.5:
+            return False
+
         rel_x = front_vehicle.bbox_3d.x - vehicle_state.x
-        rel_y = front_vehicle.bbox_3d.y - vehicle_state.y
 
-        yaw = vehicle_state.yaw
-        local_x = np.cos(yaw) * rel_x + np.sin(yaw) * rel_y
-
-        return 0.0 < local_x < self.emergency_brake_dist
+        # Hysteresis: trigger emergency at < 5.0m, release only when > 8.0m
+        if self.state == BehaviorState.EMERGENCY_STOP:
+            return 0.0 < rel_x < 8.0
+        else:
+            return 0.0 < rel_x < 5.0
 
     def _should_change_lane(self, front_vehicle: DetectedObject,
                             vehicle_state: VehicleState) -> bool:
@@ -177,57 +162,43 @@ class BehaviorPlanner:
             return False
 
         rel_x = front_vehicle.bbox_3d.x - vehicle_state.x
-        rel_y = front_vehicle.bbox_3d.y - vehicle_state.y
-
-        yaw = vehicle_state.yaw
-        local_x = np.cos(yaw) * rel_x + np.sin(yaw) * rel_y
-
-        # If obstacle vehicle is closer than 38 meters ahead in lane and slower than cruise
         lead_speed = 8.0
         if front_vehicle.bbox_3d.velocity:
             lead_speed = front_vehicle.bbox_3d.velocity[0]
 
-        return 0.0 < local_x < 38.0 and lead_speed < self.cruising_speed * 0.85
+        return 0.0 < rel_x < 45.0 and lead_speed < self.cruising_speed * 0.90
 
     def _can_change_left(self, perception: PerceptionResult,
                          vehicle_state: VehicleState) -> bool:
-        """Check if left lane is clear and within road bounds."""
-        if vehicle_state.y <= -3.5:
-            return False
-        return self._is_lane_clear(perception, vehicle_state, -1)
-
-    def _can_change_right(self, perception: PerceptionResult,
-                          vehicle_state: VehicleState) -> bool:
-        """Check if right lane is clear and within road bounds."""
-        if vehicle_state.y >= 3.5:
-            return False
-        return self._is_lane_clear(perception, vehicle_state, 1)
-
-    def _is_lane_clear(self, perception: PerceptionResult,
-                       vehicle_state: VehicleState, direction: int) -> bool:
-        """Check if target lane is clear of traffic."""
-        lane_width = 3.5
-        target_offset = direction * lane_width
-
+        """Check if left passing lane (y = -1.75) is clear of traffic."""
         for obj in perception.objects:
             if not obj.bbox_3d:
                 continue
+            # Object in passing lane corridor (-3.2 < y < -0.3)
+            if -3.2 < obj.bbox_3d.y < -0.3:
+                rel_x = obj.bbox_3d.x - vehicle_state.x
+                # Reject if vehicle is alongside or near (-12m to +25m)
+                if -12.0 < rel_x < 25.0:
+                    return False
+        return True
 
-            rel_x = obj.bbox_3d.x - vehicle_state.x
-            rel_y = obj.bbox_3d.y - vehicle_state.y
-
-            yaw = vehicle_state.yaw
-            local_x = np.cos(yaw) * rel_x + np.sin(yaw) * rel_y
-            local_y = -np.sin(yaw) * rel_x + np.cos(yaw) * rel_y
-
-            # Reject if adjacent lane has vehicle between -16m and +28m
-            if abs(local_y - target_offset) < lane_width * 0.55 and -16.0 < local_x < 28.0:
-                return False
+    def _can_change_right(self, perception: PerceptionResult,
+                          vehicle_state: VehicleState) -> bool:
+        """Check if right cruising lane (y = 1.75) is clear of traffic."""
+        for obj in perception.objects:
+            if not obj.bbox_3d:
+                continue
+            # Object in cruising lane corridor (0.3 < y < 3.2)
+            if 0.3 < obj.bbox_3d.y < 3.2:
+                rel_x = obj.bbox_3d.x - vehicle_state.x
+                # Reject if vehicle is alongside or ahead (-14m to +35m)
+                if -14.0 < rel_x < 35.0:
+                    return False
         return True
 
     def _compute_target_speed(self, vehicle_state: VehicleState,
                               perception: PerceptionResult) -> float:
-        """Compute target speed based on traffic, signals, and overtaking."""
+        """Compute target speed based on traffic, signals, and ACC following law."""
         cruising_speed = self.cruising_speed
 
         # 1. Stop for traffic signal or pedestrian
@@ -253,20 +224,30 @@ class BehaviorPlanner:
         yaw = vehicle_state.yaw
         local_x = np.cos(yaw) * rel_x + np.sin(yaw) * rel_y
 
-        if local_x > 38.0:
-            return cruising_speed
-
-        if local_x <= self.emergency_brake_dist:
-            return 0.0
-
-        # Safe following distance
+        # Lead vehicle speed tracking (Adaptive Cruise Control)
         lead_speed = 8.0
         if front_vehicle.bbox_3d.velocity and abs(front_vehicle.bbox_3d.velocity[0]) > 0.5:
-            lead_speed = front_vehicle.bbox_3d.velocity[0]
+            lead_speed = max(0.0, float(front_vehicle.bbox_3d.velocity[0]))
 
-        gap = max(0.0, local_x - self.emergency_brake_dist)
-        safe_speed = min(cruising_speed, max(lead_speed, cruising_speed * min(1.0, gap / 25.0)))
-        return float(safe_speed)
+        # Dynamic desired following distance: d_desired = d_min + T_gap * v_ego
+        d_min = 10.0  # Standstill buffer (meters)
+        t_gap = 1.6   # Time headway (seconds)
+        d_desired = d_min + t_gap * max(vehicle_state.speed, 0.0)
+
+        if local_x >= d_desired + 12.0:
+            return cruising_speed
+
+        # Linear ACC speed regulation based on distance error
+        dist_error = local_x - d_desired
+        k_acc = 0.5
+        acc_speed = lead_speed + k_acc * dist_error
+
+        # Decelerate smoothly towards 0 if closing inside d_min buffer
+        if local_x < d_min:
+            fraction = max(0.0, (local_x - 5.0) / max(0.1, d_min - 5.0))
+            acc_speed = min(acc_speed, lead_speed * fraction)
+
+        return float(np.clip(acc_speed, 0.0, cruising_speed))
 
     def _compute_stop_distance(self, perception: PerceptionResult) -> float:
         """Compute distance to stop line/obstacle."""

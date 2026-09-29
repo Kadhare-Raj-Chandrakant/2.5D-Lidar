@@ -109,7 +109,7 @@ class LocalPlanner:
         candidates = []
         s0, d0, v0, _ = frenet_state
 
-        effective_target_speed = max(behavior.target_speed, 15.0) if behavior.state.name != "EMERGENCY_STOP" else 0.0
+        effective_target_speed = float(behavior.target_speed) if behavior.state.name != "EMERGENCY_STOP" else 0.0
 
         is_changing_lane = behavior.state.name in ["LANE_CHANGE_LEFT", "LANE_CHANGE_RIGHT"]
         T_long = max(2.0, min(self.horizon / max(v0, 6.0), 6.0))

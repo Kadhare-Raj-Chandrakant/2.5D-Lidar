@@ -29,8 +29,6 @@ class ControlModule:
         target_speed = behavior.target_speed
         if behavior.state.name == "EMERGENCY_STOP":
             target_speed = 0.0
-        elif behavior.state.name == "STOP":
-            target_speed = 0.0
 
         throttle, brake = self.longitudinal.compute(vehicle_state, target_speed, dt)
 

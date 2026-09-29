@@ -164,11 +164,16 @@ def start_services(open_browser: bool = True, background: bool = False) -> bool:
     # 3. Launch Backend
     print("[1/2] Initializing Simulation Backend (main.py)...")
     backend_cmd = [sys.executable, "-u", str(ROOT_DIR / "main.py"), "--headless"]
+    creationflags = 0
+    if background and os.name == "nt":
+        creationflags = subprocess.CREATE_NEW_PROCESS_GROUP | 0x00000008  # DETACHED_PROCESS
+
     backend_proc = subprocess.Popen(
         backend_cmd,
         cwd=str(ROOT_DIR),
         stdout=backend_log_file,
-        stderr=subprocess.STDOUT
+        stderr=subprocess.STDOUT,
+        creationflags=creationflags
     )
 
     # 4. Launch Frontend
@@ -178,7 +183,8 @@ def start_services(open_browser: bool = True, background: bool = False) -> bool:
         [npm_cmd, "run", "dev"],
         cwd=str(WEB_UI_DIR),
         stdout=frontend_log_file,
-        stderr=subprocess.STDOUT
+        stderr=subprocess.STDOUT,
+        creationflags=creationflags
     )
 
     # 5. Active Health Probing (Max 15 seconds)
