@@ -55,7 +55,7 @@ class ObjectDetector:
             max_vals = np.max(cluster_points[:, :3], axis=0)
             dimensions = max_vals - min_vals
 
-            if dimensions[0] < 0.5 or dimensions[1] < 0.5:
+            if dimensions[0] < 0.35 or dimensions[1] < 0.35:
                 continue
 
             class_name = self._classify_by_size(dimensions)
@@ -66,8 +66,8 @@ class ObjectDetector:
                     x=centroid[0], y=centroid[1], z=centroid[2],
                     length=dimensions[1], width=dimensions[0], height=dimensions[2],
                     yaw=0.0,
-                    confidence=min(0.9, len(cluster_points) / 100),
-                    class_id=self.classes.index(class_name) if class_name in self.classes else 0,
+                    confidence=min(0.95, len(cluster_points) / 50),
+                    class_id=5 if class_name in ['pedestrian', 'person'] else (self.classes.index(class_name) if class_name in self.classes else 0),
                     class_name=class_name
                 )
             ))
@@ -79,15 +79,18 @@ class ObjectDetector:
         """Convert radar detections to objects."""
         detections = []
         for i, det in enumerate(radar_data):
+            cls = det.get('class_name', 'vehicle')
             detections.append(DetectedObject(
                 id=i,
                 bbox_3d=BoundingBox3D(
                     x=det['x'], y=det['y'], z=det.get('z', 0),
-                    length=4.0, width=2.0, height=1.5,
-                    yaw=0.0,
-                    confidence=0.7,
-                    class_id=0,
-                    class_name="vehicle",
+                    length=det.get('length', 4.0),
+                    width=det.get('width', 2.0),
+                    height=det.get('height', 1.5),
+                    yaw=det.get('yaw', 0.0),
+                    confidence=0.85,
+                    class_id=5 if cls in ['pedestrian', 'person'] else 0,
+                    class_name=cls,
                     velocity=(det.get('velocity', 0), 0, 0)
                 )
             ))
@@ -96,11 +99,11 @@ class ObjectDetector:
     def _classify_by_size(self, dims: np.ndarray) -> str:
         """Classify object by 3D dimensions."""
         length, width, height = dims[1], dims[0], dims[2]
-        if length > 6:
+        if width < 1.3 and length < 1.3 and height > 1.0:
+            return "pedestrian"
+        if length > 5.5:
             return "truck"
-        elif length > 4:
+        elif length > 3.0:
             return "car"
-        elif height > 1.5:
-            return "truck"
         else:
             return "car"

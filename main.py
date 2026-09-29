@@ -121,7 +121,7 @@ class Simulation:
             traffic_sig, active_sig = self.world.get_traffic_signal() if hasattr(self.world, 'get_traffic_signal') else ('green', 55.0)
             self.ws_server.update_data(
                 self.vehicle_state, perception_result, trajectory, behavior, control_cmd, sensor_data,
-                traffic_sig, active_sig
+                traffic_sig, active_sig, world_objects=self.world.get_all_objects()
             )
 
         if not self.headless:

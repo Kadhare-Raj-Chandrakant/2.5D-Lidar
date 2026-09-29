@@ -155,6 +155,11 @@ class SensorSimulator:
                 'z': obj.bbox_3d.z,
                 'local_x': local_x,
                 'local_y': local_y,
+                'length': obj.bbox_3d.length,
+                'width': obj.bbox_3d.width,
+                'height': obj.bbox_3d.height,
+                'yaw': obj.bbox_3d.yaw,
+                'class_name': getattr(obj.bbox_3d, 'class_name', 'vehicle'),
                 'velocity': obj.bbox_3d.velocity[0] if obj.bbox_3d.velocity else 0,
                 'rcs': 10.0
             })

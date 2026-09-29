@@ -1,9 +1,11 @@
 """WebSocket server to bridge Python simulation to web UI."""
 import asyncio
 import json
+import math
 import os
 import time
 from typing import Set
+import numpy as np
 import websockets
 from websockets.server import WebSocketServerProtocol
 
@@ -79,7 +81,7 @@ class SimulationWebSocketServer:
         finally:
             await self.unregister(websocket)
 
-    def update_data(self, vehicle_state, perception, trajectory, behavior, control, sensor_data, traffic_signal="green", active_signal_station=55.0):
+    def update_data(self, vehicle_state, perception, trajectory, behavior, control, sensor_data, traffic_signal="green", active_signal_station=55.0, world_objects=None):
         """Update latest simulation data for broadcasting."""
         # Downsample LiDAR point cloud to representative sample for ultra-low latency 60 FPS streaming
         lidar_data = None
@@ -88,11 +90,43 @@ class SimulationWebSocketServer:
             if hasattr(raw_lidar, '__getitem__'):
                 lidar_data = raw_lidar[::4][:600].tolist() if hasattr(raw_lidar, 'tolist') else raw_lidar[:600]
 
+        world_objs_payload = []
+        if world_objects and vehicle_state:
+            for obj in world_objects:
+                if not obj.bbox_3d:
+                    continue
+                if abs(obj.bbox_3d.x - vehicle_state.x) > 180.0:
+                    continue
+                vx = obj.bbox_3d.velocity[0] if obj.bbox_3d.velocity else 0.0
+                vy = obj.bbox_3d.velocity[1] if obj.bbox_3d.velocity else 0.0
+                speed_val = float(np.hypot(vx, vy))
+                cls_name = getattr(obj.bbox_3d, 'class_name', 'car')
+                world_objs_payload.append({
+                    "id": obj.id,
+                    "track_id": obj.track_id or obj.id,
+                    "class_name": cls_name,
+                    "confidence": getattr(obj.bbox_3d, 'confidence', 1.0),
+                    "currentSpeed": speed_val,
+                    "bbox_3d": {
+                        "x": float(obj.bbox_3d.x),
+                        "y": float(obj.bbox_3d.y),
+                        "z": float(obj.bbox_3d.z),
+                        "length": float(obj.bbox_3d.length),
+                        "width": float(obj.bbox_3d.width),
+                        "height": float(obj.bbox_3d.height),
+                        "yaw": float(obj.bbox_3d.yaw),
+                        "class_name": cls_name,
+                        "isCrossing": getattr(obj.bbox_3d, 'isCrossing', False),
+                        "jacketColor": getattr(obj.bbox_3d, 'jacketColor', None),
+                    }
+                })
+
         self.latest_data = {
             "type": "simulation_data",
             "timestamp": time.time(),
             "traffic_signal": traffic_signal,
             "active_signal_station": active_signal_station,
+            "world_objects": world_objs_payload,
             "vehicle_state": {
                 "x": vehicle_state.x,
                 "y": vehicle_state.y,

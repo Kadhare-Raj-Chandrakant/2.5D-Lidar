@@ -82,6 +82,7 @@ export const useSimulationStore = create((set) => ({
   behavior: initialBehavior,
   trafficSignal: 'green', // 'green' | 'yellow' | 'red'
   activeSignalStation: 55, // s-position of currently active traffic signal
+  worldObjects: [],
   control: { steer: 0.01, throttle: 0.35, brake: 0 },
   sensorData: null,
   isConnected: false,
@@ -93,6 +94,7 @@ export const useSimulationStore = create((set) => ({
   setBehavior: (behavior) => set({ behavior }),
   setTrafficSignal: (trafficSignal) => set({ trafficSignal }),
   setActiveSignalStation: (activeSignalStation) => set({ activeSignalStation }),
+  setWorldObjects: (worldObjects) => set({ worldObjects }),
   setControl: (control) => set({ control }),
   setSensorData: (sensorData) => set({ sensorData }),
   setConnected: (connected) => set({ isConnected: connected }),
@@ -110,6 +112,31 @@ export const useSimulationStore = create((set) => ({
         worldZ: vs.worldZ !== undefined ? vs.worldZ : egoPos.worldZ,
         yaw: vs.yaw !== undefined ? egoPos.worldYaw + vs.yaw : egoPos.worldYaw,
       }
+    }
+
+    let worldObjects = prev.worldObjects
+    if (data.world_objects) {
+      worldObjects = (data.world_objects || []).map((obj) => {
+        if (!obj.bbox_3d) return obj
+        const objPos = getLaneWorldPos(obj.bbox_3d.x, obj.bbox_3d.y)
+        const cls = obj.class_name || obj.bbox_3d.class_name
+        const isPed = cls === 'pedestrian' || cls === 'person'
+        const pedHeading = isPed 
+          ? (objPos.worldYaw + ((obj.bbox_3d.yaw && Math.abs(obj.bbox_3d.yaw) > 1.5) ? -Math.PI / 2 : Math.PI / 2))
+          : (objPos.worldYaw + (obj.bbox_3d.yaw || 0))
+        return {
+          ...obj,
+          class_name: cls,
+          bbox_3d: {
+            ...obj.bbox_3d,
+            worldX: obj.bbox_3d.worldX !== undefined ? obj.bbox_3d.worldX : objPos.worldX,
+            worldZ: obj.bbox_3d.worldZ !== undefined ? obj.bbox_3d.worldZ : objPos.worldZ,
+            worldYaw: obj.bbox_3d.worldYaw !== undefined ? obj.bbox_3d.worldYaw : pedHeading,
+            isCrossing: obj.bbox_3d.isCrossing !== undefined ? obj.bbox_3d.isCrossing : Math.abs(obj.bbox_3d.y) < 7.5,
+            jacketColor: obj.bbox_3d.jacketColor || (obj.id % 2 === 0 ? '#0284c7' : '#ef4444'),
+          }
+        }
+      })
     }
 
     let perception = prev.perception
@@ -161,6 +188,7 @@ export const useSimulationStore = create((set) => ({
       vehicleState,
       perception,
       trajectory,
+      worldObjects,
       trafficSignal: data.traffic_signal || prev.trafficSignal,
       activeSignalStation: data.active_signal_station !== undefined ? data.active_signal_station : prev.activeSignalStation,
       behavior: data.behavior || prev.behavior,

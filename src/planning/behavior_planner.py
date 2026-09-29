@@ -36,12 +36,17 @@ class BehaviorPlanner:
 
     def _update_state(self, vehicle_state: VehicleState, perception: PerceptionResult):
         """Update FSM state based on perception, signals, and overtaking lifecycle."""
+        traffic_signal = perception.sensor_data.get('traffic_signal', 'green')
+        active_station = perception.sensor_data.get('active_signal_station', 55.0)
+        dist_to_signal = active_station - vehicle_state.x
+        is_signal_stop = traffic_signal in ['red', 'yellow'] and (0.0 < dist_to_signal < 50.0)
+
         front_vehicle = self._get_front_vehicle(perception, vehicle_state)
         emergency = self._check_emergency(front_vehicle, vehicle_state)
 
-        # 1. Emergency stop check
+        # 1. Emergency stop check (only if moving fast towards an immediate obstacle)
         ped_in_path = self._check_pedestrian_in_path(perception, vehicle_state)
-        if ped_in_path and ped_in_path[0] < self.emergency_brake_dist + 2.0:
+        if ped_in_path and ped_in_path[0] < 4.5 and vehicle_state.speed > 3.0:
             emergency = True
 
         if emergency:
@@ -50,15 +55,10 @@ class BehaviorPlanner:
 
         if self.state == BehaviorState.EMERGENCY_STOP:
             if not emergency:
-                self.state = BehaviorState.LANE_FOLLOW
+                self.state = BehaviorState.STOP if is_signal_stop else BehaviorState.LANE_FOLLOW
             return
 
         # 2. Traffic Signal & Crosswalk Stop obedience
-        traffic_signal = perception.sensor_data.get('traffic_signal', 'green')
-        active_station = perception.sensor_data.get('active_signal_station', 55.0)
-        dist_to_signal = active_station - vehicle_state.x
-        is_signal_stop = traffic_signal in ['red', 'yellow'] and (0.0 < dist_to_signal < 50.0)
-
         if is_signal_stop or (ped_in_path and ped_in_path[0] < 30.0):
             self.state = BehaviorState.STOP
             return
@@ -202,7 +202,9 @@ class BehaviorPlanner:
         cruising_speed = self.cruising_speed
 
         # 1. Stop for traffic signal or pedestrian
-        if self.state == BehaviorState.STOP:
+        if self.state in [BehaviorState.STOP, BehaviorState.EMERGENCY_STOP]:
+            if self.state == BehaviorState.EMERGENCY_STOP:
+                return 0.0
             active_station = perception.sensor_data.get('active_signal_station', 55.0)
             stop_target = active_station - 9.0
             dist_to_stop = stop_target - vehicle_state.x

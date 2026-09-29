@@ -109,7 +109,7 @@ function SceneCamera({ cameraMode, vehicleState }) {
 }
 
 function SceneContent({ cameraMode }) {
-  const { vehicleState, perception, trajectory, trafficSignal, activeSignalStation } = useSimulationStore()
+  const { vehicleState, perception, trajectory, trafficSignal, activeSignalStation, worldObjects } = useSimulationStore()
   const carWorldX = vehicleState?.worldX !== undefined ? vehicleState.worldX : (vehicleState?.y || 0)
   const carWorldZ = vehicleState?.worldZ !== undefined ? vehicleState.worldZ : (vehicleState?.x || 0)
 
@@ -137,11 +137,11 @@ function SceneContent({ cameraMode }) {
       {/* 3D Road and Environment with City Turns, Crosswalks and Traffic Signals (100% Static Track) */}
       <Environment
         signalState={trafficSignal || 'green'}
-        activeSignalStation={activeSignalStation || 450}
+        activeSignalStation={activeSignalStation !== undefined ? activeSignalStation : 55}
       />
 
-      {/* Traffic Obstacles */}
-      <Traffic vehicles={perception?.objects || []} />
+      {/* Dynamic Traffic Vehicles and Crossing Pedestrians */}
+      <Traffic vehicles={(worldObjects && worldObjects.length > 0) ? worldObjects : (perception?.objects || [])} />
 
       {/* Ego Autonomous Vehicle */}
       <Vehicle state={vehicleState} />

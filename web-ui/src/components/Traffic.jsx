@@ -4,17 +4,20 @@ import { Pedestrian } from './Pedestrian'
 export function Traffic({ vehicles = [] }) {
   if (!vehicles.length) return null
 
-  // Deduplicate vehicles by physical world position so no two vehicles ever render on top of each other
+  // Deduplicate vehicles and pedestrians cleanly without dropping nearby pedestrians
   const uniqueVehicles = []
   vehicles.forEach((obj) => {
     if (!obj.bbox_3d) return
     const posX = obj.bbox_3d.worldX !== undefined ? obj.bbox_3d.worldX : obj.bbox_3d.y
     const posZ = obj.bbox_3d.worldZ !== undefined ? obj.bbox_3d.worldZ : obj.bbox_3d.x
+    const isPed = (obj.class_name === 'pedestrian' || obj.bbox_3d.class_name === 'pedestrian')
     
     const isDuplicate = uniqueVehicles.some((u) => {
+      if (u.id !== undefined && obj.id !== undefined && u.id === obj.id) return true
       const ux = u.bbox_3d.worldX !== undefined ? u.bbox_3d.worldX : u.bbox_3d.y
       const uz = u.bbox_3d.worldZ !== undefined ? u.bbox_3d.worldZ : u.bbox_3d.x
-      return Math.hypot(posX - ux, posZ - uz) < 2.8
+      const thresh = isPed ? 0.6 : 2.5
+      return Math.hypot(posX - ux, posZ - uz) < thresh
     })
 
     if (!isDuplicate) {
