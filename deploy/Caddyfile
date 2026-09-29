@@ -1,0 +1,15 @@
+# Caddy TLS terminator + WebSocket reverse proxy.
+#
+# Caddy obtains and renews a Let's Encrypt certificate automatically.
+# WebSocket upgrades are handled transparently -- no extra directives needed.
+#
+# Usage:
+#   export DOMAIN=sim.example.com
+#   caddy run --config /etc/caddy/Caddyfile
+#
+# The DOMAIN A record must already resolve to this host's public IP, otherwise
+# the certificate issuance will fail.
+
+{$DOMAIN} {
+	reverse_proxy 127.0.0.1:8765
+}

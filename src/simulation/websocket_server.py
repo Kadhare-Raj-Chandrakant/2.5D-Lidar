@@ -1,6 +1,7 @@
 """WebSocket server to bridge Python simulation to web UI."""
 import asyncio
 import json
+import os
 import time
 from typing import Set
 import websockets
@@ -10,8 +11,8 @@ from websockets.server import WebSocketServerProtocol
 class SimulationWebSocketServer:
     """WebSocket server for real-time simulation data streaming."""
 
-    def __init__(self, host: str = "localhost", port: int = 8765):
-        self.host = host
+    def __init__(self, host: str = None, port: int = 8765):
+        self.host = host or os.environ.get("WS_HOST", "localhost")
         self.port = port
         self.clients: Set[WebSocketServerProtocol] = set()
         self.latest_data = None

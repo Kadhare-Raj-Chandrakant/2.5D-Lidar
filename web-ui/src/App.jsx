@@ -194,8 +194,8 @@ export default function App() {
     setFrameData
   } = useSimulationStore()
 
-  // Connect to Python WebSocket
-  useWebSocket('ws://localhost:8765')
+  // Connect to Python WebSocket (VITE_WS_URL set in production; localhost fallback for local dev)
+  useWebSocket(import.meta.env.VITE_WS_URL || 'ws://localhost:8765')
 
   // Smooth autonomous simulation & obstacle avoidance loop
   useEffect(() => {
