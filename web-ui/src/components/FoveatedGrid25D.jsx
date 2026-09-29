@@ -20,7 +20,7 @@ import { getRoadPoint } from '../utils/roadGeometry'
  *    - 360-degree rotating sensor sweep.
  */
 export function FoveatedGrid25D({ vehicleState, perception, cameraMode = 'chase' }) {
-  if (!vehicleState) return null
+  if (!vehicleState || cameraMode !== 'grid25d') return null
 
   return (
     <group name="foveated-2.5d-grid-system">

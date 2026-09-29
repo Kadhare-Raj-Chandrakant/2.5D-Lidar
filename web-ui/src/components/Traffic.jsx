@@ -16,7 +16,7 @@ export function Traffic({ vehicles = [] }) {
       if (u.id !== undefined && obj.id !== undefined && u.id === obj.id) return true
       const ux = u.bbox_3d.worldX !== undefined ? u.bbox_3d.worldX : u.bbox_3d.y
       const uz = u.bbox_3d.worldZ !== undefined ? u.bbox_3d.worldZ : u.bbox_3d.x
-      const thresh = isPed ? 0.6 : 2.5
+      const thresh = isPed ? 0.6 : 3.8
       return Math.hypot(posX - ux, posZ - uz) < thresh
     })
 

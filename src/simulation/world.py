@@ -110,34 +110,37 @@ class WorldManager:
         # Lane  0: Cruising lane (y = 1.75)
         # Lane  1: Right outer lane (y = 5.25)
         traffic_configs = [
-            # Lane 0 (Cruising lane, y = 1.75) - includes slow lead truck for post-crosswalk overtaking demo
-            {"id": 1,  "s": 95.0,  "y":  1.75, "speed": 6.5,  "class": "truck", "length": 6.5, "width": 2.2, "height": 2.6},
-            {"id": 2,  "s": 220.0, "y":  1.75, "speed": 13.0, "class": "car",   "length": 4.5, "width": 1.9, "height": 1.5},
-            {"id": 3,  "s": 380.0, "y":  1.75, "speed": 13.5, "class": "car",   "length": 4.5, "width": 1.9, "height": 1.5},
-            {"id": 4,  "s": 560.0, "y":  1.75, "speed": 13.0, "class": "car",   "length": 4.6, "width": 2.0, "height": 1.6},
-            {"id": 5,  "s": 760.0, "y":  1.75, "speed": 13.2, "class": "car",   "length": 4.5, "width": 1.9, "height": 1.5},
-            {"id": 6,  "s": 980.0, "y":  1.75, "speed": 13.0, "class": "car",   "length": 4.5, "width": 1.9, "height": 1.5},
+            # Lane 0 (Cruising lane, y = 1.75): Slow lead truck at 95m for overtaking, rest spaced >150m apart
+            {"id": 1,  "s": 95.0,   "y":  1.75, "speed": 6.5,  "class": "truck", "length": 6.5, "width": 2.2, "height": 2.6},
+            {"id": 2,  "s": 260.0,  "y":  1.75, "speed": 13.5, "class": "car",   "length": 4.5, "width": 1.9, "height": 1.5},
+            {"id": 3,  "s": 520.0,  "y":  1.75, "speed": 13.5, "class": "car",   "length": 4.5, "width": 1.9, "height": 1.5},
+            {"id": 4,  "s": 820.0,  "y":  1.75, "speed": 13.5, "class": "car",   "length": 4.6, "width": 2.0, "height": 1.6},
+            {"id": 5,  "s": 1150.0, "y":  1.75, "speed": 13.5, "class": "car",   "length": 4.5, "width": 1.9, "height": 1.5},
+            {"id": 6,  "s": 1500.0, "y":  1.75, "speed": 13.5, "class": "car",   "length": 4.5, "width": 1.9, "height": 1.5},
 
-            # Lane -1 (Left passing lane, y = -1.75)
-            {"id": 7,  "s": 140.0, "y": -1.75, "speed": 16.5, "class": "car",   "length": 4.5, "width": 1.9, "height": 1.5},
-            {"id": 8,  "s": 310.0, "y": -1.75, "speed": 16.0, "class": "car",   "length": 4.5, "width": 1.9, "height": 1.5},
-            {"id": 9,  "s": 500.0, "y": -1.75, "speed": 16.5, "class": "car",   "length": 4.7, "width": 2.0, "height": 1.5},
-            {"id": 10, "s": 720.0, "y": -1.75, "speed": 16.0, "class": "car",   "length": 4.5, "width": 1.9, "height": 1.5},
-            {"id": 11, "s": 920.0, "y": -1.75, "speed": 16.2, "class": "car",   "length": 4.5, "width": 1.9, "height": 1.5},
+            # Lane -1 (Left passing lane, y = -1.75): Clear near ego so overtaking lane is open
+            {"id": 7,  "s": 180.0,  "y": -1.75, "speed": 16.0, "class": "car",   "length": 4.5, "width": 1.9, "height": 1.5},
+            {"id": 8,  "s": 420.0,  "y": -1.75, "speed": 16.0, "class": "car",   "length": 4.5, "width": 1.9, "height": 1.5},
+            {"id": 9,  "s": 690.0,  "y": -1.75, "speed": 16.0, "class": "car",   "length": 4.7, "width": 2.0, "height": 1.5},
+            {"id": 10, "s": 980.0,  "y": -1.75, "speed": 16.0, "class": "car",   "length": 4.5, "width": 1.9, "height": 1.5},
+            {"id": 11, "s": 1290.0, "y": -1.75, "speed": 16.0, "class": "car",   "length": 4.5, "width": 1.9, "height": 1.5},
+            {"id": 12, "s": 1620.0, "y": -1.75, "speed": 16.0, "class": "car",   "length": 4.5, "width": 1.9, "height": 1.5},
 
-            # Lane -2 (Far-left lane, y = -5.25)
-            {"id": 12, "s": 110.0, "y": -5.25, "speed": 18.5, "class": "car",   "length": 4.6, "width": 2.0, "height": 1.5},
-            {"id": 13, "s": 270.0, "y": -5.25, "speed": 18.0, "class": "car",   "length": 4.5, "width": 1.9, "height": 1.5},
-            {"id": 14, "s": 440.0, "y": -5.25, "speed": 18.5, "class": "car",   "length": 4.5, "width": 1.9, "height": 1.5},
-            {"id": 15, "s": 650.0, "y": -5.25, "speed": 18.0, "class": "car",   "length": 4.6, "width": 2.0, "height": 1.5},
-            {"id": 16, "s": 850.0, "y": -5.25, "speed": 18.5, "class": "car",   "length": 4.5, "width": 1.9, "height": 1.5},
+            # Lane -2 (Far-left express lane, y = -5.25)
+            {"id": 13, "s": 130.0,  "y": -5.25, "speed": 18.0, "class": "car",   "length": 4.6, "width": 2.0, "height": 1.5},
+            {"id": 14, "s": 360.0,  "y": -5.25, "speed": 18.0, "class": "car",   "length": 4.5, "width": 1.9, "height": 1.5},
+            {"id": 15, "s": 610.0,  "y": -5.25, "speed": 18.0, "class": "car",   "length": 4.5, "width": 1.9, "height": 1.5},
+            {"id": 16, "s": 890.0,  "y": -5.25, "speed": 18.0, "class": "car",   "length": 4.6, "width": 2.0, "height": 1.5},
+            {"id": 17, "s": 1200.0, "y": -5.25, "speed": 18.0, "class": "car",   "length": 4.5, "width": 1.9, "height": 1.5},
+            {"id": 18, "s": 1550.0, "y": -5.25, "speed": 18.0, "class": "car",   "length": 4.5, "width": 1.9, "height": 1.5},
 
             # Lane 1 (Outer right lane, y = 5.25)
-            {"id": 17, "s": 75.0,  "y":  5.25, "speed": 11.0, "class": "truck", "length": 6.8, "width": 2.2, "height": 2.7},
-            {"id": 18, "s": 190.0, "y":  5.25, "speed": 11.5, "class": "car",   "length": 4.5, "width": 1.9, "height": 1.5},
-            {"id": 19, "s": 350.0, "y":  5.25, "speed": 11.0, "class": "car",   "length": 4.5, "width": 1.9, "height": 1.5},
-            {"id": 20, "s": 580.0, "y":  5.25, "speed": 11.2, "class": "car",   "length": 4.5, "width": 1.9, "height": 1.5},
-            {"id": 21, "s": 800.0, "y":  5.25, "speed": 11.0, "class": "car",   "length": 4.5, "width": 1.9, "height": 1.5},
+            {"id": 19, "s": 140.0,  "y":  5.25, "speed": 11.0, "class": "truck", "length": 6.8, "width": 2.2, "height": 2.7},
+            {"id": 20, "s": 330.0,  "y":  5.25, "speed": 11.5, "class": "car",   "length": 4.5, "width": 1.9, "height": 1.5},
+            {"id": 21, "s": 550.0,  "y":  5.25, "speed": 11.0, "class": "car",   "length": 4.5, "width": 1.9, "height": 1.5},
+            {"id": 22, "s": 800.0,  "y":  5.25, "speed": 11.5, "class": "car",   "length": 4.5, "width": 1.9, "height": 1.5},
+            {"id": 23, "s": 1100.0, "y":  5.25, "speed": 11.0, "class": "car",   "length": 4.5, "width": 1.9, "height": 1.5},
+            {"id": 24, "s": 1450.0, "y":  5.25, "speed": 11.5, "class": "car",   "length": 4.5, "width": 1.9, "height": 1.5},
         ]
 
         for cfg in traffic_configs:
@@ -152,6 +155,7 @@ class WorldManager:
                 ),
                 track_id=cfg["id"]
             )
+            obj.base_speed = cfg["speed"]
             self.vehicles.append(obj)
 
     def step(self, ego_state: VehicleState):
@@ -222,53 +226,90 @@ class WorldManager:
             if ped_obj.id in [81, 82, 83, 84]:
                 ped_obj.bbox_3d.isCrossing = False
 
-        # 3. Step vehicle traffic along highway with collision-free spacing and signal compliance
+        # 3. Step vehicle traffic along highway with collision-free car-following physics
         for obj in self.vehicles:
-            if obj.bbox_3d and obj.bbox_3d.velocity:
-                vx, vy, vz = obj.bbox_3d.velocity
+            if not obj.bbox_3d or not obj.bbox_3d.velocity:
+                continue
 
-                # Check if lead vehicle is ahead in the same lane
-                min_gap = float('inf')
-                for other in self.vehicles:
-                    if other.id != obj.id and other.bbox_3d:
-                        if abs(other.bbox_3d.y - obj.bbox_3d.y) < 1.4 and other.bbox_3d.x > obj.bbox_3d.x:
-                            gap = other.bbox_3d.x - obj.bbox_3d.x
-                            if gap < min_gap:
-                                min_gap = gap
+            base_speed = getattr(obj, 'base_speed', obj.bbox_3d.velocity[0])
+            curr_vx = obj.bbox_3d.velocity[0]
+            obj_half_l = obj.bbox_3d.length / 2.0
 
-                # Check if ego car is ahead in same lane
-                if abs(ego_state.y - obj.bbox_3d.y) < 1.4 and ego_state.x > obj.bbox_3d.x:
-                    ego_gap = ego_state.x - obj.bbox_3d.x
-                    if ego_gap < min_gap:
-                        min_gap = ego_gap
+            # Find closest lead vehicle in the exact same lane corridor
+            min_lead_gap = float('inf')
+            lead_speed = base_speed
 
-                # Traffic signal obedience for other vehicles at active crosswalk stop line
-                dist_to_signal = active_station_s - obj.bbox_3d.x
-                if self.traffic_signal in ['red', 'yellow'] and 0.0 < dist_to_signal < 30.0:
-                    stop_gap = dist_to_signal - 8.0
-                    if stop_gap < min_gap:
-                        min_gap = max(0.0, stop_gap)
+            for other in self.vehicles:
+                if other.id != obj.id and other.bbox_3d:
+                    if abs(other.bbox_3d.y - obj.bbox_3d.y) < 1.4:
+                        other_half_l = other.bbox_3d.length / 2.0
+                        gap = (other.bbox_3d.x - other_half_l) - (obj.bbox_3d.x + obj_half_l)
+                        if 0.0 < gap < min_lead_gap:
+                            min_lead_gap = gap
+                            if other.bbox_3d.velocity:
+                                lead_speed = other.bbox_3d.velocity[0]
 
-                curr_vx = vx
-                if min_gap < 14.0:
-                    curr_vx = min(vx, max(0.0, min_gap * 0.45))
+            # Check if ego car is ahead in same lane
+            if abs(ego_state.y - obj.bbox_3d.y) < 1.4:
+                ego_gap = (ego_state.x - 2.4) - (obj.bbox_3d.x + obj_half_l)
+                if 0.0 < ego_gap < min_lead_gap:
+                    min_lead_gap = ego_gap
+                    lead_speed = ego_state.speed
 
-                obj.bbox_3d.x += curr_vx * self.dt
-                obj.bbox_3d.y += vy * self.dt
+            # Traffic signal obedience for other vehicles at active crosswalk stop line
+            dist_to_signal = active_station_s - (obj.bbox_3d.x + obj_half_l)
+            if self.traffic_signal in ['red', 'yellow'] and 0.0 < dist_to_signal < 40.0:
+                stop_line_gap = dist_to_signal - 7.5
+                if 0.0 < stop_line_gap < min_lead_gap:
+                    min_lead_gap = stop_line_gap
+                    lead_speed = 0.0
 
-                # Continuous traffic recycling:
-                # If vehicle falls behind ego (> 45m behind) or gets too far ahead (> 220m ahead):
-                # respawn ahead in a realistic lane to keep highway continuously populated
-                if obj.bbox_3d.x < ego_state.x - 45.0:
-                    obj.bbox_3d.x = ego_state.x + float(np.random.uniform(90.0, 180.0))
-                    new_lane = float(np.random.choice(lane_centers))
-                    obj.bbox_3d.y = new_lane
-                    base_speeds = {-5.25: 18.0, -1.75: 16.5, 1.75: 13.0, 5.25: 11.0}
-                    new_speed = base_speeds.get(new_lane, 14.0) + float(np.random.uniform(-1.0, 1.0))
-                    obj.bbox_3d.velocity = (new_speed, 0.0, 0.0)
-                elif obj.bbox_3d.x > ego_state.x + 230.0:
-                    # Slow down or reposition if escaping too far
-                    obj.bbox_3d.x = ego_state.x + float(np.random.uniform(110.0, 170.0))
+            # Safe car-following deceleration profile:
+            if min_lead_gap < 7.0:
+                target_v = 0.0  # Standstill stop buffer: never drive into vehicle ahead
+            elif min_lead_gap < 18.0:
+                headway_factor = max(0.0, (min_lead_gap - 7.0) / 11.0)
+                target_v = min(lead_speed * headway_factor, base_speed * 0.5)
+            elif min_lead_gap < 38.0:
+                target_v = min(base_speed, lead_speed + 0.35 * (min_lead_gap - 18.0))
+            else:
+                target_v = base_speed
+
+            # Smooth acceleration / braking
+            if target_v > curr_vx:
+                new_vx = min(target_v, curr_vx + 1.8 * self.dt)
+            else:
+                new_vx = max(target_v, curr_vx - 3.5 * self.dt)
+
+            obj.bbox_3d.velocity = (max(0.0, new_vx), 0.0, 0.0)
+            obj.bbox_3d.x += new_vx * self.dt
+
+            # Stable, invisible recycling:
+            # ONLY recycle when vehicle falls far behind ego (>120m behind) or reaches the end of track (>2500m)
+            # NEVER recycle while ahead of ego!
+            if obj.bbox_3d.x < ego_state.x - 120.0 or obj.bbox_3d.x > 2500.0:
+                # Place 320m to 460m ahead of ego (far into the horizon fog where user cannot see it)
+                placed = False
+                for _ in range(8):
+                    cand_lane = float(np.random.choice(lane_centers))
+                    cand_x = ego_state.x + float(np.random.uniform(320.0, 460.0))
+                    # Ensure clearance from all vehicles in candidate lane
+                    clear = all(
+                        abs(other.bbox_3d.x - cand_x) > 50.0
+                        for other in self.vehicles
+                        if other.id != obj.id and other.bbox_3d and abs(other.bbox_3d.y - cand_lane) < 1.0
+                    )
+                    if clear:
+                        obj.bbox_3d.x = cand_x
+                        obj.bbox_3d.y = cand_lane
+                        base_speeds = {-5.25: 18.0, -1.75: 16.0, 1.75: 13.5, 5.25: 11.0}
+                        obj.base_speed = base_speeds.get(cand_lane, 14.0)
+                        obj.bbox_3d.velocity = (obj.base_speed, 0.0, 0.0)
+                        placed = True
+                        break
+                if not placed:
+                    obj.bbox_3d.x = ego_state.x + 380.0
+                    obj.bbox_3d.velocity = (base_speed, 0.0, 0.0)
 
     def get_all_objects(self) -> List[DetectedObject]:
         """Get all objects in world (vehicles, crossing pedestrians, bystanders)."""

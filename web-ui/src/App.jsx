@@ -149,12 +149,14 @@ function SceneContent({ cameraMode }) {
       {/* LiDAR Radius Field & Sensor suite */}
       <SensorVisualization vehicleState={vehicleState} perception={perception} />
 
-      {/* 2.5D Variable-Resolution Foveated Semantic Elevation Grid & In-Scene Autonomous Corridor */}
-      <FoveatedGrid25D
-        vehicleState={vehicleState}
-        perception={perception}
-        cameraMode={cameraMode}
-      />
+      {/* 2.5D Variable-Resolution Foveated Semantic Elevation Grid (Only rendered when 2.5D Grid button is clicked) */}
+      {cameraMode === 'grid25d' && (
+        <FoveatedGrid25D
+          vehicleState={vehicleState}
+          perception={perception}
+          cameraMode={cameraMode}
+        />
+      )}
 
       {/* Planned Trajectory Path */}
       <PlannedPath trajectory={trajectory} />
