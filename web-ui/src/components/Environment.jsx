@@ -6,6 +6,7 @@ import {
   createAlignedDashesGeometry
 } from '../utils/roadGeometry'
 import { TrafficSignal } from './TrafficSignal'
+import { CityBuildings } from './CityBuildings'
 
 // Full static track bounds: -200m to 2600m (covers 2+ full city loop cycles without dynamic generation)
 const STATIC_TRACK_START = -200
@@ -16,6 +17,26 @@ export function Environment({ signalState = 'green', activeSignalStation = 55 })
   // 1. Asphalt roadway ribbon (-8m to +8m, 16m total roadway)
   const roadGeo = useMemo(
     () => createCurvedRibbonGeometry(STATIC_TRACK_START, STATIC_TRACK_END, 4.5, -ROAD_WIDTH / 2, ROAD_WIDTH / 2, 0.005),
+    []
+  )
+
+  // 2. Concrete Sidewalks (-12m to -8m on left, +8m to +12m on right)
+  const leftSidewalkGeo = useMemo(
+    () => createCurvedRibbonGeometry(STATIC_TRACK_START, STATIC_TRACK_END, 5.0, -12.0, -8.0, 0.02),
+    []
+  )
+  const rightSidewalkGeo = useMemo(
+    () => createCurvedRibbonGeometry(STATIC_TRACK_START, STATIC_TRACK_END, 5.0, 8.0, 12.0, 0.02),
+    []
+  )
+
+  // 3. Elevated Curb Line Ribbons (-8.15m to -7.95m and +7.95m to +8.15m)
+  const leftCurbGeo = useMemo(
+    () => createCurvedRibbonGeometry(STATIC_TRACK_START, STATIC_TRACK_END, 5.0, -8.15, -7.95, 0.038),
+    []
+  )
+  const rightCurbGeo = useMemo(
+    () => createCurvedRibbonGeometry(STATIC_TRACK_START, STATIC_TRACK_END, 5.0, 7.95, 8.15, 0.038),
     []
   )
 
@@ -53,10 +74,30 @@ export function Environment({ signalState = 'green', activeSignalStation = 55 })
 
   return (
     <group name="static-environment-world">
-      {/* 1. Lightweight Cyber Ground Grid — zero GPU lag, eliminates multi-pass terrain ribbons */}
+      {/* 1. Dark Urban Ground Foundation & Grid */}
+      <mesh receiveShadow position={[0, -0.05, 1200]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[2800, 2800]} />
+        <meshBasicMaterial color="#080d1a" />
+      </mesh>
       <gridHelper args={[2600, 130, '#1e293b', '#0f172a']} position={[0, -0.02, 1200]} />
 
-      {/* 2. Main Asphalt Roadway Ribbon */}
+      {/* 2. Concrete Sidewalks flanking the roadway */}
+      <mesh receiveShadow geometry={leftSidewalkGeo}>
+        <meshStandardMaterial color="#2d3748" roughness={0.9} side={THREE.DoubleSide} />
+      </mesh>
+      <mesh receiveShadow geometry={rightSidewalkGeo}>
+        <meshStandardMaterial color="#2d3748" roughness={0.9} side={THREE.DoubleSide} />
+      </mesh>
+
+      {/* 2b. Elevated Granite Curb Line Ribbons */}
+      <mesh geometry={leftCurbGeo}>
+        <meshStandardMaterial color="#4a5568" roughness={0.7} side={THREE.DoubleSide} />
+      </mesh>
+      <mesh geometry={rightCurbGeo}>
+        <meshStandardMaterial color="#4a5568" roughness={0.7} side={THREE.DoubleSide} />
+      </mesh>
+
+      {/* 3. Main Asphalt Roadway Ribbon */}
       <mesh receiveShadow geometry={roadGeo}>
         <meshStandardMaterial
           color="#1a202c"
@@ -66,7 +107,7 @@ export function Environment({ signalState = 'green', activeSignalStation = 55 })
         />
       </mesh>
 
-      {/* 3. Solid Outer Edge Shoulder Markings (Vivid Golden Yellow) */}
+      {/* 4. Solid Outer Edge Shoulder Markings (Vivid Golden Yellow) */}
       <mesh geometry={leftSolidGeo}>
         <meshBasicMaterial color="#f59e0b" side={THREE.DoubleSide} />
       </mesh>
@@ -74,15 +115,15 @@ export function Environment({ signalState = 'green', activeSignalStation = 55 })
         <meshBasicMaterial color="#f59e0b" side={THREE.DoubleSide} />
       </mesh>
 
-      {/* 4. Crisp White Dashed Lane Dividers */}
+      {/* 5. Crisp White Dashed Lane Dividers */}
       <mesh geometry={dashesGeo}>
         <meshBasicMaterial color="#ffffff" side={THREE.DoubleSide} />
       </mesh>
 
-      {/* 5. Road Surface Directional Arrows (Crisp white lane indicators) */}
+      {/* 6. Road Surface Directional Arrows (Crisp white lane indicators) */}
       <CurvedRoadArrows startS={STATIC_TRACK_START} endS={STATIC_TRACK_END} />
 
-      {/* 6. Highway Street Lights along both shoulders (Warm glowing LED highway lighting) */}
+      {/* 7. Highway Street Lights along both shoulders (Warm glowing LED highway lighting) */}
       <CurvedStreetLights
         startS={STATIC_TRACK_START}
         endS={STATIC_TRACK_END}
@@ -90,7 +131,7 @@ export function Environment({ signalState = 'green', activeSignalStation = 55 })
         intersections={intersections}
       />
 
-      {/* 7. Pedestrian Zebra Crosswalks & Traffic Signals at Active Stations */}
+      {/* 8. Pedestrian Zebra Crosswalks & Traffic Signals at Active Stations */}
       {intersections.map((stationS) => (
         <group key={`inter-${stationS}`}>
           <ZebraCrossingMarking s={stationS} />
@@ -102,6 +143,13 @@ export function Environment({ signalState = 'green', activeSignalStation = 55 })
           />
         </group>
       ))}
+
+      {/* 9. City Skyline: Skyscrapers, Commercial Towers & Urban Greenery (Instanced GPU, < 120 KB RAM) */}
+      <CityBuildings
+        startS={STATIC_TRACK_START}
+        endS={STATIC_TRACK_END}
+        intersections={intersections}
+      />
     </group>
   )
 }

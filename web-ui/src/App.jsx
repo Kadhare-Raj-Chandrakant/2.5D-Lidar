@@ -119,7 +119,7 @@ function SceneContent({ cameraMode }) {
       <fog attach="fog" args={['#0c1222', 60, 280]} />
 
       {/* Cinematic Lighting Setup that follows curved highway with the vehicle */}
-      <ambientLight intensity={0.7} />
+      <ambientLight intensity={0.95} />
       <directionalLight
         position={[carWorldX + 35, 80, carWorldZ + 40]}
         intensity={2.2}
@@ -132,7 +132,12 @@ function SceneContent({ cameraMode }) {
         shadow-camera-top={70}
         shadow-camera-bottom={-70}
       />
-      <hemisphereLight groundColor="#1e293b" skyColor="#38bdf8" intensity={0.7} />
+      <directionalLight
+        position={[carWorldX - 45, 60, carWorldZ - 30]}
+        intensity={1.2}
+        color="#94a3b8"
+      />
+      <hemisphereLight groundColor="#1e293b" skyColor="#38bdf8" intensity={0.85} />
 
       {/* 3D Road and Environment with City Turns, Crosswalks and Traffic Signals (100% Static Track) */}
       <Environment

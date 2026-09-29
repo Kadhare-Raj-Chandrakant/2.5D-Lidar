@@ -4,19 +4,23 @@ import { Pedestrian } from './Pedestrian'
 export function Traffic({ vehicles = [] }) {
   if (!vehicles.length) return null
 
-  // Deduplicate vehicles and pedestrians cleanly without dropping nearby pedestrians
+  // Deduplicate vehicles and pedestrians cleanly without dropping vehicles in adjacent lanes
   const uniqueVehicles = []
   vehicles.forEach((obj) => {
     if (!obj.bbox_3d) return
+    const persistentId = obj.id ?? obj.track_id ?? obj.bbox_3d?.track_id
     const posX = obj.bbox_3d.worldX !== undefined ? obj.bbox_3d.worldX : obj.bbox_3d.y
     const posZ = obj.bbox_3d.worldZ !== undefined ? obj.bbox_3d.worldZ : obj.bbox_3d.x
     const isPed = (obj.class_name === 'pedestrian' || obj.bbox_3d.class_name === 'pedestrian')
     
     const isDuplicate = uniqueVehicles.some((u) => {
-      if (u.id !== undefined && obj.id !== undefined && u.id === obj.id) return true
+      const uId = u.id ?? u.track_id ?? u.bbox_3d?.track_id
+      if (uId !== undefined && persistentId !== undefined) {
+        return uId === persistentId
+      }
       const ux = u.bbox_3d.worldX !== undefined ? u.bbox_3d.worldX : u.bbox_3d.y
       const uz = u.bbox_3d.worldZ !== undefined ? u.bbox_3d.worldZ : u.bbox_3d.x
-      const thresh = isPed ? 0.6 : 3.8
+      const thresh = isPed ? 0.6 : 1.2
       return Math.hypot(posX - ux, posZ - uz) < thresh
     })
 
@@ -30,36 +34,42 @@ export function Traffic({ vehicles = [] }) {
       {uniqueVehicles.map((obj, i) => {
         if (!obj.bbox_3d) return null
 
-        const { x, y, z, length, width, height, yaw = 0, class_name, track_id, worldX, worldZ, worldYaw, isCrossing } = obj.bbox_3d
-        const speedKmh = obj.currentSpeed !== undefined ? Math.round(obj.currentSpeed * 3.6) : (obj.speed ? Math.round(obj.speed * 3.6) : 26)
+        const persistentId = obj.id ?? obj.track_id ?? obj.bbox_3d?.track_id ?? i
+        const { x, y, z, length, width, height, yaw = 0, class_name, worldX, worldZ, worldYaw, isCrossing } = obj.bbox_3d
+        const rawSpeed = obj.currentSpeed !== undefined ? obj.currentSpeed : (obj.speed !== undefined ? obj.speed : 0)
+        const speedKmh = Math.round(rawSpeed * 3.6)
 
         const posX = worldX !== undefined ? worldX : y
         const posZ = worldZ !== undefined ? worldZ : x
         const rotYaw = worldYaw !== undefined ? worldYaw : yaw
+        const vehicleColor = obj.color || obj.bbox_3d?.color
+        const vehicleName = obj.model_name || obj.bbox_3d?.model_name
 
         if (class_name === 'pedestrian' || class_name === 'person') {
           return (
             <Pedestrian
-              key={track_id || i}
+              key={`ped-${persistentId}`}
               position={[posX, 0, posZ]}
               rotation={[0, rotYaw, 0]}
               isCrossing={isCrossing !== undefined ? isCrossing : Math.abs(y) < 7.5}
               walkSpeed={obj.speed || 1.4}
-              jacketColor={obj.bbox_3d?.jacketColor || (track_id % 2 === 0 ? '#0284c7' : '#ef4444')}
-              label={`Pedestrian #${track_id || i}`}
+              jacketColor={obj.bbox_3d?.jacketColor || (persistentId % 2 === 0 ? '#0284c7' : '#ef4444')}
+              label={`Pedestrian #${persistentId}`}
             />
           )
         }
 
         return (
           <OtherVehicle
-            key={track_id || i}
+            key={`veh-${persistentId}`}
             position={[posX, 0, posZ]}
             rotation={[0, rotYaw, 0]}
             dimensions={[width || 1.9, height || 1.5, length || 4.5]}
             className={class_name}
-            trackId={track_id || i}
+            trackId={persistentId}
             speedKmh={speedKmh}
+            customColor={vehicleColor}
+            customName={vehicleName}
           />
         )
       })}
@@ -67,25 +77,47 @@ export function Traffic({ vehicles = [] }) {
   )
 }
 
-function getVehiclePalette(className, trackId = 0) {
+function getVehiclePalette(className, trackId = 0, customColor = null, customName = null) {
   if (className === 'truck') {
-    return { body: '#f97316', cabin: '#ea580c', roof: '#c2410c', name: 'Truck', icon: '🚚' }
+    return {
+      body: customColor || '#f97316',
+      cabin: '#ea580c',
+      roof: '#c2410c',
+      name: customName || 'Truck',
+      icon: '🚚'
+    }
   }
   if (className === 'bus') {
-    return { body: '#eab308', cabin: '#ca8a04', roof: '#a16207', name: 'Bus', icon: '🚌' }
+    return {
+      body: customColor || '#eab308',
+      cabin: '#ca8a04',
+      roof: '#a16207',
+      name: customName || 'Bus',
+      icon: '🚌'
+    }
   }
   const carColors = [
     { body: '#ef4444', cabin: '#1e293b', roof: '#b91c1c', name: 'Sedan', icon: '🚗' },
     { body: '#06b6d4', cabin: '#0f172a', roof: '#0891b2', name: 'EV Sedan', icon: '🚙' },
     { body: '#facc15', cabin: '#1e293b', roof: '#ca8a04', name: 'Cab', icon: '🚕' },
-    { body: '#f8fafc', cabin: '#0f172a', roof: '#cbd5e1', name: 'SUV', icon: '🚙' },
+    { body: '#cbd5e1', cabin: '#0f172a', roof: '#94a3b8', name: 'SUV', icon: '🚙' },
+    { body: '#3b82f6', cabin: '#0f172a', roof: '#1d4ed8', name: 'Coupe', icon: '🏎️' },
+    { body: '#8b5cf6', cabin: '#1e293b', roof: '#6d28d9', name: 'EV Sedan', icon: '🚙' },
   ]
-  return carColors[trackId % carColors.length]
+  const idx = Math.abs(Number(trackId) || 0) % carColors.length
+  const base = carColors[idx]
+  return {
+    body: customColor || base.body,
+    cabin: base.cabin,
+    roof: base.roof,
+    name: customName || base.name,
+    icon: base.icon,
+  }
 }
 
-function OtherVehicle({ position, rotation, dimensions, className, trackId, speedKmh }) {
+function OtherVehicle({ position, rotation, dimensions, className, trackId, speedKmh, customColor, customName }) {
   const [w, h, l] = dimensions
-  const palette = getVehiclePalette(className, trackId)
+  const palette = getVehiclePalette(className, trackId, customColor, customName)
   const isTruck = className === 'truck'
 
   const wheelRadius = isTruck ? 0.44 : 0.34
@@ -93,6 +125,10 @@ function OtherVehicle({ position, rotation, dimensions, className, trackId, spee
   const wheelY = wheelRadius
   const wheelOffsetZ = l * 0.32
   const wheelOffsetX = w * 0.48
+
+  // Rock-solid standstill check: if <= 1.5 km/h, display solid 0 km/h with red accent
+  const isStopped = speedKmh <= 1.5
+  const displaySpeed = isStopped ? 0 : speedKmh
 
   return (
     <group position={position} rotation={rotation}>
@@ -123,7 +159,7 @@ function OtherVehicle({ position, rotation, dimensions, className, trackId, spee
         }}>
           <span>{palette.icon} {palette.name} #{trackId}</span>
           <span style={{ color: '#38bdf8' }}>|</span>
-          <span style={{ color: '#4ade80' }}>{speedKmh} km/h</span>
+          <span style={{ color: isStopped ? '#ef4444' : '#4ade80' }}>{displaySpeed} km/h</span>
         </div>
       </Html>
 

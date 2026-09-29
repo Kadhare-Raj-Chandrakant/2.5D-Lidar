@@ -206,11 +206,18 @@ class BehaviorPlanner:
             if self.state == BehaviorState.EMERGENCY_STOP:
                 return 0.0
             active_station = perception.sensor_data.get('active_signal_station', 55.0)
-            stop_target = active_station - 9.0
+            # Stop line marking is at active_station - 7.0m.
+            # Vehicle front bumper is at vehicle_state.x + 2.3m.
+            # Targeting vehicle center at active_station - 11.5m ensures the front bumper stops 2.2m safely BEFORE the white line.
+            stop_target = active_station - 11.5
             dist_to_stop = stop_target - vehicle_state.x
 
-            if dist_to_stop > 0.4:
-                return float(min(cruising_speed, max(0.0, np.sqrt(2 * 2.2 * dist_to_stop))))
+            if dist_to_stop <= 0.2:
+                return 0.0
+            elif dist_to_stop < 2.5:
+                return float(min(1.2, dist_to_stop * 0.45))
+            else:
+                return float(min(cruising_speed, max(0.0, np.sqrt(2 * 1.8 * dist_to_stop))))
             return 0.0
 
         # 2. While actively changing lane or overtaking -> maintain steady cruise speed

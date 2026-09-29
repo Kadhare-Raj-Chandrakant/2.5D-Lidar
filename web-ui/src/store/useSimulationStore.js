@@ -126,9 +126,16 @@ export const useSimulationStore = create((set) => ({
           : (objPos.worldYaw + (obj.bbox_3d.yaw || 0))
         return {
           ...obj,
+          id: obj.id,
+          track_id: obj.track_id || obj.id,
+          color: obj.color || obj.bbox_3d?.color,
+          model_name: obj.model_name || obj.bbox_3d?.model_name,
           class_name: cls,
           bbox_3d: {
             ...obj.bbox_3d,
+            track_id: obj.track_id || obj.id,
+            color: obj.color || obj.bbox_3d?.color,
+            model_name: obj.model_name || obj.bbox_3d?.model_name,
             worldX: obj.bbox_3d.worldX !== undefined ? obj.bbox_3d.worldX : objPos.worldX,
             worldZ: obj.bbox_3d.worldZ !== undefined ? obj.bbox_3d.worldZ : objPos.worldZ,
             worldYaw: obj.bbox_3d.worldYaw !== undefined ? obj.bbox_3d.worldYaw : pedHeading,

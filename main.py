@@ -75,7 +75,7 @@ class Simulation:
         if not self.running:
             return False
 
-        if self.step_count >= self.max_steps:
+        if self.step_count >= self.max_steps or self.vehicle_state.x >= 1200.0:
             self.step_count = 0
             self.vehicle_state = self.scenario_manager.apply_scenario(self.scenario_name, self.world)
             self.planning.set_goal(*self.scenario_manager.get_scenario(self.scenario_name)["goal"].values())

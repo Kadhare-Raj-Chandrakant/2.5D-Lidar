@@ -90,6 +90,12 @@ class ScenarioManager:
                         ),
                         track_id=1000 + i
                     )
+                    spec_obj.base_speed = float(spec.get("speed", 6.5))
+                    spec_obj.color = "#f97316" if is_truck else "#ef4444"
+                    spec_obj.model_name = "Truck" if is_truck else "Sedan"
+                    spec_obj.bbox_3d.color = spec_obj.color
+                    spec_obj.bbox_3d.model_name = spec_obj.model_name
+                    spec_obj.bbox_3d.track_id = 1000 + i
                     # Avoid vehicle collision with special obstacle at initial spawn
                     world_manager.vehicles = [spec_obj] + [
                         v for v in world_manager.vehicles

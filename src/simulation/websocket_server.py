@@ -95,18 +95,25 @@ class SimulationWebSocketServer:
             for obj in world_objects:
                 if not obj.bbox_3d:
                     continue
-                if abs(obj.bbox_3d.x - vehicle_state.x) > 180.0:
+                if abs(obj.bbox_3d.x - vehicle_state.x) > 220.0:
                     continue
                 vx = obj.bbox_3d.velocity[0] if obj.bbox_3d.velocity else 0.0
                 vy = obj.bbox_3d.velocity[1] if obj.bbox_3d.velocity else 0.0
                 speed_val = float(np.hypot(vx, vy))
+                if speed_val < 0.25:
+                    speed_val = 0.0
                 cls_name = getattr(obj.bbox_3d, 'class_name', 'car')
+                veh_color = getattr(obj, 'color', getattr(obj.bbox_3d, 'color', None))
+                veh_model = getattr(obj, 'model_name', getattr(obj.bbox_3d, 'model_name', None))
+                track_id_val = getattr(obj, 'track_id', obj.id)
                 world_objs_payload.append({
                     "id": obj.id,
-                    "track_id": obj.track_id or obj.id,
+                    "track_id": track_id_val,
                     "class_name": cls_name,
                     "confidence": getattr(obj.bbox_3d, 'confidence', 1.0),
                     "currentSpeed": speed_val,
+                    "color": veh_color,
+                    "model_name": veh_model,
                     "bbox_3d": {
                         "x": float(obj.bbox_3d.x),
                         "y": float(obj.bbox_3d.y),
@@ -116,6 +123,9 @@ class SimulationWebSocketServer:
                         "height": float(obj.bbox_3d.height),
                         "yaw": float(obj.bbox_3d.yaw),
                         "class_name": cls_name,
+                        "color": veh_color,
+                        "model_name": veh_model,
+                        "track_id": track_id_val,
                         "isCrossing": getattr(obj.bbox_3d, 'isCrossing', False),
                         "jacketColor": getattr(obj.bbox_3d, 'jacketColor', None),
                     }
